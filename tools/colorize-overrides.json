@@ -1,0 +1,786 @@
+{
+  "_note": "Rectangles are [x0, y0, x1, y1] in pixels of the cut-out PNG in public/facades. zones force a material (brick | metal | concrete | cmu | plain) in order, later wins; glass is still detected inside zones. notGlass: closed rectangles that are not windows. erase: drawing notes / leader lines to remove. Auger level (head house base) is at y~470 on every cut.",
+  "east": {
+    "zones": [
+      {
+        "mat": "metal",
+        "rect": [
+          0,
+          0,
+          2620,
+          470
+        ],
+        "why": "head house above Auger level (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          725,
+          0,
+          990,
+          1540
+        ],
+        "why": "stair/elevator tower (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          990,
+          0,
+          1370,
+          580
+        ],
+        "why": "corrugated head house pieces east of tower"
+      }
+    ],
+    "notGlass": [
+      [
+        725,
+        180,
+        990,
+        240
+      ],
+      [
+        725,
+        1190,
+        990,
+        1540
+      ]
+    ],
+    "erase": [
+      [
+        1020,
+        330,
+        1180,
+        420
+      ]
+    ]
+  },
+  "west": {
+    "zones": [
+      {
+        "mat": "metal",
+        "rect": [
+          0,
+          0,
+          2560,
+          481
+        ],
+        "why": "head house above Auger level (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          1170,
+          600,
+          1455,
+          690
+        ],
+        "why": "metal panel infill at existing openings"
+      },
+      {
+        "mat": "plain",
+        "rect": [
+          1160,
+          800,
+          1455,
+          1537
+        ],
+        "why": "new elevator enclosure, precast (PC)"
+      },
+      {
+        "mat": "plain",
+        "rect": [
+          1455,
+          0,
+          1750,
+          1537
+        ],
+        "why": "elevator addition, precast (PC)"
+      }
+    ],
+    "notGlass": [
+      [
+        1470,
+        220,
+        1745,
+        320
+      ],
+      [
+        1170,
+        605,
+        1445,
+        695
+      ],
+      [
+        1455,
+        320,
+        1530,
+        1530
+      ]
+    ],
+    "erase": [
+      [
+        1160,
+        240,
+        1468,
+        480
+      ],
+      [
+        0,
+        0,
+        115,
+        1100
+      ]
+    ],
+    "patches": [
+      {
+        "why": "L2 landing guard + slab drawn over the wall (built in 3D now)",
+        "op": "tile",
+        "src": [
+          610,
+          1165,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            30,
+            1306
+          ],
+          [
+            286,
+            1306
+          ],
+          [
+            286,
+            1366
+          ],
+          [
+            30,
+            1366
+          ]
+        ]
+      },
+      {
+        "why": "corner stair flights + turn landing drawn over the wall (built in 3D now)",
+        "op": "tile",
+        "src": [
+          610,
+          1165,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            276,
+            1298
+          ],
+          [
+            458,
+            1383
+          ],
+          [
+            460,
+            1447
+          ],
+          [
+            398,
+            1447
+          ],
+          [
+            214,
+            1540
+          ],
+          [
+            150,
+            1540
+          ],
+          [
+            150,
+            1512
+          ],
+          [
+            300,
+            1425
+          ],
+          [
+            300,
+            1395
+          ],
+          [
+            276,
+            1380
+          ]
+        ]
+      },
+      {
+        "why": "upper flight stringer end",
+        "op": "tile",
+        "src": [
+          610,
+          1165,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            276,
+            1360
+          ],
+          [
+            380,
+            1395
+          ],
+          [
+            385,
+            1412
+          ],
+          [
+            296,
+            1412
+          ],
+          [
+            276,
+            1390
+          ]
+        ]
+      },
+      {
+        "why": "ramp guard drawn across the bottom of the wall",
+        "op": "tile",
+        "src": [
+          610,
+          1165,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            50,
+            1468
+          ],
+          [
+            952,
+            1468
+          ],
+          [
+            952,
+            1521
+          ],
+          [
+            50,
+            1521
+          ]
+        ]
+      },
+      {
+        "why": "ramp guard, CMU panel part",
+        "op": "tile",
+        "src": [
+          954,
+          1392,
+          54,
+          18
+        ],
+        "poly": [
+          [
+            952,
+            1468
+          ],
+          [
+            1086,
+            1468
+          ],
+          [
+            1086,
+            1521
+          ],
+          [
+            952,
+            1521
+          ]
+        ]
+      },
+      {
+        "why": "ramp guard, east end brick",
+        "op": "tile",
+        "src": [
+          610,
+          1165,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            1086,
+            1468
+          ],
+          [
+            1167,
+            1468
+          ],
+          [
+            1167,
+            1521
+          ],
+          [
+            1086,
+            1521
+          ]
+        ]
+      },
+      {
+        "why": "below grade strip",
+        "op": "tile",
+        "src": [
+          52,
+          1522,
+          54,
+          15
+        ],
+        "poly": [
+          [
+            105,
+            1521
+          ],
+          [
+            1167,
+            1521
+          ],
+          [
+            1167,
+            1537
+          ],
+          [
+            105,
+            1537
+          ]
+        ]
+      },
+      {
+        "why": "L2 door onto the landing",
+        "op": "window",
+        "rect": [
+          137,
+          1262,
+          186,
+          1359
+        ]
+      },
+      {
+        "why": "W72 storefront with door (middle bay)",
+        "op": "window",
+        "rect": [
+          107,
+          1390,
+          243,
+          1521
+        ],
+        "v": [
+          153,
+          197
+        ],
+        "h": [
+          1425
+        ]
+      },
+      {
+        "why": "W73 storefront",
+        "op": "window",
+        "rect": [
+          671,
+          1390,
+          805,
+          1521
+        ],
+        "v": [
+          716,
+          761
+        ],
+        "h": [
+          1425
+        ]
+      },
+      {
+        "why": "door in CMU panel",
+        "op": "window",
+        "rect": [
+          1009,
+          1424,
+          1059,
+          1521
+        ]
+      }
+    ]
+  },
+  "south": {
+    "zones": [
+      {
+        "mat": "metal",
+        "rect": [
+          0,
+          0,
+          990,
+          454
+        ],
+        "why": "head house above Auger level (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          788,
+          0,
+          990,
+          1510
+        ],
+        "why": "stair/elevator tower (PM)"
+      }
+    ],
+    "notGlass": [
+      [
+        320,
+        230,
+        610,
+        355
+      ],
+      [
+        185,
+        345,
+        240,
+        450
+      ]
+    ],
+    "erase": []
+  },
+  "north-upper": {
+    "zones": [
+      {
+        "mat": "metal",
+        "rect": [
+          0,
+          0,
+          1000,
+          454
+        ],
+        "why": "head house above Auger level (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          0,
+          0,
+          200,
+          1170
+        ],
+        "why": "stair/elevator tower (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          740,
+          240,
+          1000,
+          765
+        ],
+        "why": "new elevator enclosure above the precast block, corrugated metal panel (Window Order set 402; 040 A402 draws it unhatched - unconfirmed)"
+      },
+      {
+        "mat": "precast",
+        "rect": [
+          740,
+          765,
+          1000,
+          1170
+        ],
+        "why": "precast concrete block at the wing roof (040 A402 unhatched + 1/G160 NW axon; Collin 2026-11-25: grey precast)"
+      }
+    ],
+    "notGlass": [],
+    "erase": [],
+    "patches": [
+      {
+        "why": "W62 (L5, east bay) third lite: its frame line against the column is dashed, so the lite leaked and lost its glass (040 A402)",
+        "op": "window",
+        "rect": [
+          395,
+          586,
+          458,
+          759
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "W62 (L5, west bay) third lite, open to the strip beside the precast",
+        "op": "window",
+        "rect": [
+          654,
+          586,
+          716,
+          759
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "W49 (L4, west bay) first lite, open to the column",
+        "op": "window",
+        "rect": [
+          482,
+          827,
+          543,
+          899
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "W40 (L3, east bay) third lite, cut by the vestibule outline",
+        "op": "window",
+        "rect": [
+          422,
+          1015,
+          458,
+          1076
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "drawn wing roof guard + wing parapet in front of the base of the wall (124'-128'7\"), now built in 3D: brick behind it, east bay",
+        "op": "tile",
+        "poly": [
+          [
+            200,
+            1100
+          ],
+          [
+            457,
+            1100
+          ],
+          [
+            457,
+            1170
+          ],
+          [
+            200,
+            1170
+          ]
+        ],
+        "src": [
+          240,
+          940,
+          18,
+          12
+        ]
+      },
+      {
+        "why": "same, west bay",
+        "op": "tile",
+        "poly": [
+          [
+            480,
+            1100
+          ],
+          [
+            716,
+            1100
+          ],
+          [
+            716,
+            1170
+          ],
+          [
+            480,
+            1170
+          ]
+        ],
+        "src": [
+          500,
+          940,
+          18,
+          12
+        ]
+      },
+      {
+        "why": "same, column strips and the precast block (zone paints it)",
+        "op": "white",
+        "rect": [
+          457,
+          1100,
+          480,
+          1170
+        ]
+      },
+      {
+        "op": "white",
+        "rect": [
+          716,
+          1100,
+          955,
+          1170
+        ]
+      },
+      {
+        "why": "L3 door leaves run down to the roof deck (were hidden behind the drawn guard): east bay door",
+        "op": "window",
+        "rect": [
+          277,
+          1062,
+          319,
+          1170
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "precast block, east door",
+        "op": "window",
+        "rect": [
+          745,
+          1062,
+          789,
+          1170
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "precast block, west door",
+        "op": "window",
+        "rect": [
+          893,
+          1062,
+          938,
+          1170
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "precast block low window (its sill line was under the drawn guard)",
+        "op": "window",
+        "rect": [
+          792,
+          1076,
+          860,
+          1111
+        ],
+        "v": [],
+        "h": []
+      }
+    ]
+  },
+  "north-wing": {
+    "zones": [],
+    "notGlass": [],
+    "erase": [
+      [
+        472,
+        33,
+        526,
+        69
+      ]
+    ],
+    "patches": [
+      {
+        "why": "roof guard drawing behind the top of the stair: clone from the left",
+        "op": "clone",
+        "rect": [
+          490,
+          0,
+          625,
+          36
+        ],
+        "from": [
+          -160,
+          0
+        ]
+      },
+      {
+        "why": "north stair, landings and guards drawn over the wall (built in 3D now)",
+        "op": "tile",
+        "src": [
+          480,
+          180,
+          18,
+          12
+        ],
+        "poly": [
+          [
+            490,
+            36
+          ],
+          [
+            612,
+            36
+          ],
+          [
+            722,
+            98
+          ],
+          [
+            768,
+            98
+          ],
+          [
+            905,
+            180
+          ],
+          [
+            905,
+            244
+          ],
+          [
+            838,
+            244
+          ],
+          [
+            838,
+            224
+          ],
+          [
+            750,
+            155
+          ],
+          [
+            705,
+            155
+          ],
+          [
+            543,
+            60
+          ],
+          [
+            560,
+            72
+          ],
+          [
+            490,
+            72
+          ]
+        ]
+      },
+      {
+        "why": "sign band outline the stair crossed",
+        "op": "lines",
+        "segs": [
+          [
+            499,
+            96,
+            655,
+            96
+          ],
+          [
+            655,
+            96,
+            655,
+            145
+          ]
+        ]
+      }
+    ],
+    "eraseWhy": "opening in the brick band at the top of the north stair (z -30.2 to -26.25, 124'-1\" to the cap): the stair landing ties into the roof guard (A402 north, Collin 2026-11-25)"
+  }
+}
