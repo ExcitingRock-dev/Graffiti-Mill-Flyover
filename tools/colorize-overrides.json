@@ -79,24 +79,24 @@
         "why": "metal panel infill at existing openings"
       },
       {
-        "mat": "plain",
+        "mat": "precast",
         "rect": [
           1160,
           800,
           1455,
           1537
         ],
-        "why": "new elevator enclosure, precast (PC)"
+        "why": "new elevator enclosure, precast (PC) -> grey precast texture (040 A401 note: NEW ELEVATOR ENCLOSURE, PRE-CAST CONCRETE; Collin 2026-11-25)"
       },
       {
-        "mat": "plain",
+        "mat": "precast",
         "rect": [
           1455,
           0,
           1750,
           1537
         ],
-        "why": "elevator addition, precast (PC)"
+        "why": "elevator addition, precast (PC) -> grey precast texture (040 A401 note: NEW ELEVATOR ENCLOSURE, PRE-CAST CONCRETE; Collin 2026-11-25)"
       }
     ],
     "notGlass": [
@@ -113,10 +113,16 @@
         695
       ],
       [
-        1455,
+        1478,
         320,
         1530,
         1530
+      ],
+      [
+        1172,
+        1476,
+        1280,
+        1519
       ]
     ],
     "erase": [
@@ -411,8 +417,95 @@
           1059,
           1521
         ]
+      },
+      {
+        "why": "W2 square windows: tag diamond fills the lite, redraw clean (040 A401)",
+        "op": "window",
+        "rect": [
+          1438,
+          1015,
+          1476,
+          1053
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "op": "window",
+        "rect": [
+          1438,
+          1190,
+          1476,
+          1228
+        ],
+        "v": [],
+        "h": []
+      },
+      {
+        "why": "drawing text on the wall: 99'-10\" dimension and ELEVATOR ADDITION label",
+        "op": "white",
+        "rect": [
+          1504,
+          876,
+          1521,
+          926
+        ]
+      },
+      {
+        "op": "white",
+        "rect": [
+          1529,
+          834,
+          1546,
+          966
+        ]
       }
-    ]
+    ],
+    "glassPolys": [
+      {
+        "why": "W15 upper diagonal slot, precast block west face (040 A401)",
+        "poly": [
+          [
+            1252,
+            1115.8
+          ],
+          [
+            1406,
+            1031.9
+          ],
+          [
+            1406,
+            1053.9
+          ],
+          [
+            1252,
+            1137.8
+          ]
+        ]
+      },
+      {
+        "why": "W15 lower diagonal slot",
+        "poly": [
+          [
+            1252,
+            1298.8
+          ],
+          [
+            1406,
+            1214.9
+          ],
+          [
+            1406,
+            1235.9
+          ],
+          [
+            1252,
+            1319.8
+          ]
+        ]
+      }
+    ],
+    "notGlassWhy": " [1172,1476,1280,1519]: ramp landing in front of the block west door (A401), not a window."
   },
   "south": {
     "zones": [

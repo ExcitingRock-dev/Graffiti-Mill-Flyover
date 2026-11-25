@@ -34,7 +34,7 @@ import {
 export const C = {
   brick: "#d8c49a",
   metal: "#2a2622",
-  precast: "#d6d2ca",
+  precast: "#b2b1ac", // grey precast, matches the facade precast texture
   concrete: "#bebdb8",
   roof: "#a9a7a1",
   deck: "#c9c4b8",

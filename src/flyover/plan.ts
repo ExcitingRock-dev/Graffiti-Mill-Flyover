@@ -279,7 +279,7 @@ export const HEAD_HOUSE: Volume[] = [
     eave: 96,
     ridge: 96,
     axis: "x",
-    mat: "metal", // Collin confirmed 2026-11-23: corrugated metal (Window Order 402 wins over A401 precast)
+    mat: "precast", // 040 A401: "NEW ELEVATOR ENCLOSURE, PRE-CAST CONCRETE" (Collin 2026-11-25; replaces the 11-23 metal call)
   },
   {
     name: "HE2 gable on elevator",

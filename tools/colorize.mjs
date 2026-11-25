@@ -241,6 +241,30 @@ const liteBox = new Map();
     lab++;
   }
 }
+// Forced lites: rotated windows the rectangle test can't see (overrides
+// "glassPolys": [{ poly: [[x, y], ...] }], polygon = the glass inside the frame)
+{
+  const inP = (poly, x, y) => {
+    let c = false;
+    for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
+      const [xa, ya] = poly[a], [xb, yb] = poly[b];
+      if ((ya > y) !== (yb > y) && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) c = !c;
+    }
+    return c;
+  };
+  let lab = 1e6;
+  for (const gp of overrides.glassPolys ?? []) {
+    const xs = gp.poly.map((p) => p[0]), ys = gp.poly.map((p) => p[1]);
+    const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs));
+    const y0 = Math.floor(Math.min(...ys)), y1 = Math.ceil(Math.max(...ys));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const p = y * W + x;
+      if (alpha[p] && inP(gp.poly, x + 0.5, y + 0.5)) { glass[p] = 1; comp[p] = lab; }
+    }
+    liteBox.set(lab, [y0, y1]);
+    lab++;
+  }
+}
 // Tag diamonds / text inside a lite become glass too
 for (const [x0, y0, x1, y1, lab] of glassBoxes) {
   for (let y = y0 + 3; y <= y1 - 3; y++) for (let x = x0 + 3; x <= x1 - 3; x++) {
@@ -360,8 +384,9 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   if (glass[p]) {
     // find lite bbox for vertical gradient (approx: use whole-image row fraction within lite)
     const lab = comp[p] >= 0 && liteTone.has(comp[p]) ? comp[p] : null;
+    const fl = comp[p] >= 1e6 ? comp[p] : null; // forced lite
     const tone = lab !== null ? liteTone.get(lab) : 0.9;
-    const yb = lab !== null ? liteBox.get(lab) : [y - 1, y + 1];
+    const yb = lab !== null ? liteBox.get(lab) : fl !== null ? liteBox.get(fl) : [y - 1, y + 1];
     const t = 0.15 + 0.7 * ((y - yb[0]) / Math.max(1, yb[1] - yb[0]));
     col = GLOW_TOP.map((v, j) => (v + (GLOW_BOT[j] - v) * t) * tone);
   } else if (ink[p] && nearGlass(x, y)) {
