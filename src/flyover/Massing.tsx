@@ -11,9 +11,7 @@ import {
   TOWER_OPEN,
   HEAD_HOUSE,
   MAIN,
-  RAMP_RAILS,
   RINGS,
-  RTUS,
   LIGHT_WELL,
   LIGHT_WELL_POLY,
   WING_ROOF,
@@ -774,12 +772,6 @@ export const Massing: React.FC = () => (
     <WingRoofGuard />
     <LightWell />
     <RoofVestibule />
-    {RTUS.map((r, i) => (
-      <BoxXYZ key={i} x={r.x} y={[24, 29]} z={r.z} color="#9a9a96" />
-    ))}
-    {RAMP_RAILS.map((p, i) => (
-      <Railing key={i} path={p} y={24.1} kind="rail" />
-    ))}
 
     {/* Decks with black guards */}
     {DECKS.map((d) => (

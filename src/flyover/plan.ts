@@ -107,7 +107,9 @@ export const NORTH_STAIR_GAP = { z0: -30.2, z1: -26.25 };
 export const LIGHT_WELL = {
   x: [161.5, 180.6] as [number, number],
   z0: GZ.B, // inside edge
-  hole: { x: 170.6, z: -1.4, r: 2.5 },
+  // tree opening: still undefined; Collin 2026-11-26 wants it smaller (~2 ft
+  // across), same center
+  hole: { x: 170.6, z: -1.4, r: 1.0 },
 };
 export const WING_POLY: XZ[] = [
   [GX.g9, WING_WEST.z9],
@@ -480,16 +482,6 @@ export const SPEAKEASY = {
 export const speakeasyTop = (x: number) =>
   SPEAKEASY.roofHigh -
   ((x - GX.g9) * (SPEAKEASY.roofHigh - SPEAKEASY.wallLow)) / (SPEAKEASY.outerX - GX.g9);
-export const RTUS = [
-  {
-    x: [167.8, 177.7] as [number, number],
-    z: [-35.9, -28.5] as [number, number],
-  },
-  {
-    x: [167.8, 177.7] as [number, number],
-    z: [-23.0, -16.0] as [number, number],
-  },
-];
 // light well outline: grade to roof, inside face of the east wall 1 ft in
 export const LIGHT_WELL_POLY: XZ[] = [
   [LIGHT_WELL.x[0], LIGHT_WELL.z0],
@@ -497,22 +489,6 @@ export const LIGHT_WELL_POLY: XZ[] = [
   [LIGHT_WELL.x[1], wingEastZ(LIGHT_WELL.x[1]) - 1],
   [LIGHT_WELL.x[0], wingEastZ(LIGHT_WELL.x[0]) - 1],
 ];
-// Accessible ramp guardrails, parallel runs along the west wall
-export const RAMP_RAILS: XZ[][] = [
-  [
-    [136, -59.5],
-    [180, -58.3],
-  ],
-  [
-    [136, -53.5],
-    [180, -52.3],
-  ],
-  [
-    [136, -47.5],
-    [180, -46.3],
-  ],
-];
-
 // ---- Exterior stairs ------------------------------------------------------
 export type Flight = {
   from: [number, number, number];
