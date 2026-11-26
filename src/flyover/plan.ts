@@ -383,32 +383,44 @@ export type Volume = {
 // 8" eaves on every roof (4/G160; Collin 2026-11-26)
 export const EAVE = 8 / 12;
 const EAVES = { start: EAVE, end: EAVE, a: EAVE, b: EAVE };
+// the east wall line of sheds HA and HB (A402 south, 8" inside the eave tips)
+const HEAD_HOUSE_EAST_WALL = -46.3;
+// HA and HB read as one building: HA gabled, HB a single slope that carries
+// HA's east slope on up to the west face. Same eave on the east wall, same
+// pitch (A402 south: both lines fall ~0.43; Collin 2026-11-26)
+const HA_HB_EAVE = 85.4;
+const HA_HB_PITCH = 0.43;
+const HA_Z: [number, number] = [-57.1, HEAD_HOUSE_EAST_WALL];
+const HB_Z: [number, number] = [GZ.K, HEAD_HOUSE_EAST_WALL];
 export const HEAD_HOUSE: Volume[] = [
   {
+    // walls z -57.1 to -46.3 (A402 south: the gable front, ridge on grid J);
+    // HB shares its east wall line (Collin 2026-11-26)
     name: "HA grid 2-3 K-H",
     skin: "corrugated",
-    overhang: EAVES,
+    // no eave at the north end, where it meets HB
+    overhang: { ...EAVES, end: 0 },
     x: [16.07, 36.2],
-    z: [-57.8, -42.4],
+    z: HA_Z,
     base: 77,
-    eave: 85,
-    ridge: 88,
+    eave: HA_HB_EAVE,
+    ridge: HA_HB_EAVE + (HA_HB_PITCH * (HA_Z[1] - HA_Z[0])) / 2,
     axis: "x",
     mat: "metal",
   },
   {
-    // single slope, high at the west face, falling east (A402 south: 192'-4"
-    // at z -62 down to ~185'-1" at z -44.9; A401 shows its high edge; Collin
-    // 2026-11-26)
+    // single slope, high at the west face, falling east at HA's pitch (A402
+    // south: ~192'-4" at grid K; A401 shows its high edge; Collin 2026-11-26)
     name: "HB grid 3-4 K-H",
     skin: "corrugated",
     roof: "shed",
-    overhang: EAVES,
+    // no eave at the south end, where it meets HA
+    overhang: { ...EAVES, start: 0 },
     x: [36.2, 46.1],
-    z: [-62, -44.9],
+    z: HB_Z,
     base: 77,
-    eave: 85.1,
-    ridge: 92.3,
+    eave: HA_HB_EAVE,
+    ridge: HA_HB_EAVE + HA_HB_PITCH * (HB_Z[1] - HB_Z[0]),
     axis: "x",
     mat: "metal",
   },
