@@ -90,6 +90,16 @@ export const PRECAST_TOWER = {
   roof: 53.0,
   parapetT: 0.67,
 };
+// The New Precast Structure (Collin 2026-11-26): the precast tower plus the
+// elevator shaft and stair beside it, grid 5 to grid 9. One concrete skin
+// (concrete.ts) from grade to the roofs, no horizontal seams; its walls stand
+// `skin` proud of the grid lines so the north and west faces meet in one clean
+// 90-degree corner. Only the drawing's windows are laid over it.
+export const NEW_PRECAST = {
+  x: [75.6, GX.g9] as [number, number], // grid 5 to grid 9
+  skin: 0.1,
+  grade: -1.2,
+};
 // Openings in the two corrugated sheds (A402 north, A403 east)
 export const NORTH_SHEDS = {
   // north gable of the west shed, the box with an X just above the stone band:
@@ -370,21 +380,14 @@ export const HEAD_HOUSE: Volume[] = [
     axis: "x",
     mat: "metal",
   },
+  // The tall gable seen over the elevator on A401 is not on the elevator: it
+  // is a raised gable on the central roof (Collin 2026-11-26). A140 shows its
+  // footprint inside HG's north slope; heights from A401.
   {
-    name: "HE elevator addition",
-    x: [75.6, 94.6],
-    z: [-61.7, -46.7],
-    base: PRECAST_TOWER.top, // its north wall shows above the precast tower roof
-    eave: 96,
-    ridge: 96,
-    axis: "x",
-    mat: "precast", // 040 A401: "NEW ELEVATOR ENCLOSURE, PRE-CAST CONCRETE" (Collin 2026-11-25; replaces the 11-23 metal call)
-  },
-  {
-    name: "HE2 gable on elevator",
+    name: "HG2 raised gable on the central roof",
     x: [76, 88],
-    z: [-61.7, -46.7],
-    base: 96,
+    z: [-31.8, -19.7],
+    base: 93.5,
     eave: 103.4,
     ridge: 106.1,
     axis: "z",
@@ -428,6 +431,19 @@ export const HEAD_HOUSE: Volume[] = [
     overhang: { end: 1, a: 1, b: 1 },
   },
 ];
+// Elevator enclosure: part of the new precast structure (A401 "NEW ELEVATOR
+// ENCLOSURE, PRE-CAST CONCRETE"), concrete like the building below. Single-slope
+// corrugated roof (A140 ribs run west-east, no ridge): low at the west face at
+// 189'-0" (A401 top of the concrete), up to 196'-0" at its east side; the band
+// on A401 between them is this roof seen from its low side (Collin 2026-11-26).
+export const ELEVATOR = {
+  x: [NEW_PRECAST.x[0], PRECAST_TOWER.x[0]] as [number, number],
+  z: [GZ.K - NEW_PRECAST.skin, -46.7] as [number, number], // west face flush with the tower's
+  base: NEW_PRECAST.grade, // one wall from the ground to the roof
+  low: 89.0, // west eave
+  high: 96.0, // east side
+  roofThick: 0.25,
+};
 // Concrete flat roof (speckle on A140) = the precast tower's roof
 export const CONCRETE_ROOF = {
   x: PRECAST_TOWER.x,

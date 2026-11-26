@@ -1,9 +1,13 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { CorrugatedShed, corrugatedTexture } from "./Sheds";
+import { concreteTexture } from "./concrete";
 import { SpeakeasyWall } from "./SpeakeasyWall";
 import {
   EAST_ROOF_EDGE,
+  ELEVATOR,
+  NEW_PRECAST,
+  GZ,
   WEST_ROOF_EDGE,
   NORTH_BAND,
   NORTH_WEST_WALL,
@@ -723,7 +727,7 @@ const subtractAll = (boxes: Box3[], holes: Box3[]) =>
 // elevator enclosure's north wall so the two faces don't fight)
 const aboveTower: Box3 = {
   x: [PRECAST_TOWER.x[0] - 0.2, MAIN.x1 + 1],
-  y: [PRECAST_TOWER.roof, MAIN.top + 1],
+  y: [PRECAST_TOWER.roof - 0.35, MAIN.top + 1], // core stops under the 0.3 roof slab, not at its top
   z: [MAIN.z0 - 1, PRECAST_TOWER.z[1] + 0.2], // core face sits 0.2 behind the shed / band walls
 };
 // the corrugated sheds are hollow skins: no core or roof slab inside them
@@ -790,13 +794,147 @@ const NorthBand: React.FC = () => {
 
 // Precast tower roof edge (north and west) and the brick / metal wall
 // rising from its roof on the east side
-const PrecastTowerTop: React.FC = () => {
+const PrecastTowerTop: React.FC = () => <NorthWestWall />;
+
+// UVs from world position (feet), picked by each face's facing, so pieces
+// that share a plane carry one continuous texture with no seam
+const worldUV = (g: THREE.BufferGeometry) => {
+  const geo = g.index ? g.toNonIndexed() : g;
+  geo.computeVertexNormals();
+  const p = geo.getAttribute("position");
+  const n = geo.getAttribute("normal");
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const [ax, ay, az] = [Math.abs(n.getX(i)), Math.abs(n.getY(i)), Math.abs(n.getZ(i))];
+    const [u, v] =
+      ay >= ax && ay >= az ? [p.getX(i), p.getZ(i)] : ax >= az ? [p.getZ(i), p.getY(i)] : [p.getX(i), p.getY(i)];
+    uv[2 * i] = u;
+    uv[2 * i + 1] = v;
+  }
+  geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  return geo;
+};
+const boxAt = (x: Range, y: Range, z: Range) =>
+  new THREE.BoxGeometry(x[1] - x[0], y[1] - y[0], z[1] - z[0]).translate(
+    (x[0] + x[1]) / 2,
+    (y[0] + y[1]) / 2,
+    (z[0] + z[1]) / 2,
+  );
+
+// The New Precast Structure (NEW_PRECAST): the precast tower and the elevator
+// shaft as one concrete skin. No automatic outlines (they would draw the
+// joints between pieces); only the real corners and roof edges are drawn.
+const NewPrecastStructure: React.FC = () => {
   const t = PRECAST_TOWER;
+  const e = ELEVATOR;
+  const s = NEW_PRECAST.skin;
+  const gr = NEW_PRECAST.grade;
+  const N = GX.g9 + s; // north face
+  const W = GZ.K - s; // west face
+  const E = t.z[1]; // the tower's east side, at the shed wall
+  const pT = t.parapetT + s;
+  const slab = 0.3; // CONCRETE_ROOF thickness: the body stops under it
+  const { pieces, tex, edges } = useMemo(() => {
+    // elevator: profile in (u = -z, y) extruded along +x, moved into place
+    const prof = new THREE.Shape(
+      (
+        [
+          [e.z[0], e.base],
+          [e.z[1], e.base],
+          [e.z[1], e.high],
+          [e.z[0], e.low],
+        ] as [number, number][]
+      ).map(([z, y]) => new THREE.Vector2(-z, y)),
+    );
+    const elev = new THREE.ExtrudeGeometry(prof, { depth: e.x[1] - e.x[0], bevelEnabled: false })
+      .rotateY(Math.PI / 2)
+      .translate(e.x[0], 0, 0);
+    const geos = [
+      boxAt([t.x[0], N], [gr, t.roof - slab], [W, E]), // tower body
+      boxAt([N - pT, N], [t.roof - slab, t.top], [W, E]), // north parapet
+      boxAt([t.x[0], N - pT], [t.roof - slab, t.top], [W, W + pT]), // west parapet
+      elev,
+    ].map(worldUV);
+    const P = (x: number, y: number, z: number) => [x, y, z];
+    const seg = (a: number[], b: number[]) => [...a, ...b];
+    const lines = [
+      seg(P(N, gr, W), P(N, t.top, W)), // NW corner
+      seg(P(N, gr, E), P(N, t.top, E)),
+      seg(P(t.x[0], t.top, W), P(N, t.top, W)), // parapet tops, outer
+      seg(P(N, t.top, W), P(N, t.top, E)),
+      seg(P(t.x[0], t.top, W + pT), P(N - pT, t.top, W + pT)), // parapet tops, inner
+      seg(P(N - pT, t.top, W + pT), P(N - pT, t.top, E)),
+      seg(P(t.x[0], t.roof, W + pT), P(N - pT, t.roof, W + pT)), // parapet feet
+      seg(P(N - pT, t.roof, W + pT), P(N - pT, t.roof, E)),
+      seg(P(e.x[0], gr, W), P(e.x[0], e.low, W)), // grid 5 edge of the west face
+      seg(P(e.x[1], t.top, W), P(e.x[1], e.low, W)), // elevator NW corner above the parapet
+      seg(P(e.x[0], e.low, W), P(e.x[1], e.low, W)), // west eave
+      seg(P(e.x[1], t.roof, e.z[1]), P(e.x[1], e.high, e.z[1])), // elevator NE corner
+      seg(P(e.x[1], e.low, W), P(e.x[1], e.high, e.z[1])), // north face top
+      seg(P(e.x[0], e.low, W), P(e.x[0], e.high, e.z[1])), // south face top
+      seg(P(e.x[0], e.base, e.z[1]), P(e.x[0], e.high, e.z[1])),
+      seg(P(e.x[0], e.high, e.z[1]), P(e.x[1], e.high, e.z[1])),
+    ].flat();
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+    return { pieces: geos, tex: concreteTexture(), edges: eg };
+  }, [t, e, N, W, E, pT, gr]);
   return (
     <group>
-      <BoxXYZ x={[t.x[1] - t.parapetT, t.x[1]]} y={[t.roof, t.top]} z={t.z} color={C.precast} />
-      <BoxXYZ x={t.x} y={[t.roof, t.top]} z={[t.z[0], t.z[0] + t.parapetT]} color={C.precast} />
-      <NorthWestWall />
+      {pieces.map((g, i) => (
+        <mesh key={i} geometry={g}>
+          <meshLambertMaterial map={tex} />
+        </mesh>
+      ))}
+      <lineSegments geometry={edges}>
+        <lineBasicMaterial color={C.line} />
+      </lineSegments>
+    </group>
+  );
+};
+
+// The precast tower's roof: light concrete; its edges are hidden by the
+// parapets, so no outline
+const ConcreteRoof: React.FC = () => {
+  const r = CONCRETE_ROOF;
+  const { geo, tex } = useMemo(
+    () => ({ geo: worldUV(boxAt(r.x, [r.y - 0.3, r.y], r.z)), tex: concreteTexture("roof") }),
+    [r],
+  );
+  return (
+    <mesh geometry={geo}>
+      <meshLambertMaterial map={tex} />
+    </mesh>
+  );
+};
+
+// Elevator roof: single-slope corrugated, low on the west face, ribs running
+// down the slope (the walls are part of NewPrecastStructure)
+const ElevatorEnclosure: React.FC = () => {
+  const e = ELEVATOR;
+  const { roof } = useMemo(() => {
+    const span = e.z[1] - e.z[0];
+    const rise = e.high - e.low;
+    const L = Math.hypot(span, rise);
+    const w = e.x[1] - e.x[0];
+    return {
+      roof: { L, w, alpha: Math.atan2(rise, span), tex: corrugatedTexture(w, L, 77) },
+    };
+  }, [e]);
+  return (
+    <group>
+      <NewPrecastStructure />
+      {/* local +y runs down the slope toward the west eave */}
+      <group
+        position={[(e.x[0] + e.x[1]) / 2, (e.low + e.high) / 2, (e.z[0] + e.z[1]) / 2]}
+        rotation={[-(Math.PI / 2 + roof.alpha), 0, 0]}
+      >
+        <mesh position={[0, 0, e.roofThick + 0.01]}>
+          <planeGeometry args={[roof.w, roof.L]} />
+          <meshLambertMaterial map={roof.tex} side={THREE.DoubleSide} />
+        </mesh>
+        <BoxXYZ x={[-roof.w / 2, roof.w / 2]} y={[-roof.L / 2, roof.L / 2]} z={[0, e.roofThick]} color={C.roof} />
+      </group>
     </group>
   );
 };
@@ -909,12 +1047,7 @@ export const Massing: React.FC = () => (
       y={MAIN.top}
       h={2.5}
     />
-    <BoxXYZ
-      x={CONCRETE_ROOF.x}
-      y={[CONCRETE_ROOF.y - 0.3, CONCRETE_ROOF.y]}
-      z={CONCRETE_ROOF.z}
-      color={C.concrete}
-    />
+    <ConcreteRoof />
     {HEAD_HOUSE.map((v) =>
       v.skin === "corrugated" ? (
         <CorrugatedShed
@@ -927,6 +1060,7 @@ export const Massing: React.FC = () => (
         <GableVolume key={v.name} v={v} />
       ),
     )}
+    <ElevatorEnclosure />
 
     {/* Wing roof deck and its pieces */}
     <Prism poly={WING_POLY} y0={WING_ROOF.y - 0.3} y1={WING_ROOF.y} color={C.deck} holes={WELL_HOLES} />

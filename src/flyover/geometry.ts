@@ -10,6 +10,7 @@ import {
   GX,
   GZ,
   H,
+  NEW_PRECAST,
   NORTH_ROOFLINE,
   PRECAST_TOWER,
   SPEAKEASY_WALL as SW,
@@ -49,6 +50,10 @@ export const CUTS = {
     w: 1000,
     h: 1170, // 040 A402, cut down to the wing roof deck (124')
   },
+  // the same sheets with the concrete made transparent (tools/mask-precast.mjs):
+  // only the windows show, over the 3D concrete of the New Precast Structure
+  westPrecast: { file: "facades-color/west-precast.png", x: 940, y: 1300, w: 2560, h: 1537 },
+  northPrecast: { file: "facades-color/north-upper-precast.png", x: 2560, y: 1300, w: 1000, h: 1170 },
   northWing: {
     file: "facades-color/north-wing.png",
     x: 2560,
@@ -104,15 +109,19 @@ const RAW_PANELS: Panel[] = [
   // ---- true west (A401)
   // west main face: over the precast tower (grid 9 back to the elevator
   // enclosure) the drawing stops at its 154' parapet; nothing stands above it
+  // Grid 9 to grid 5 is the New Precast Structure: 3D concrete (Massing.tsx)
+  // with only the drawing's windows laid over it
   ...(
     [
-      [GX.g9, PRECAST_TOWER.x[0], PRECAST_TOWER.top],
-      [PRECAST_TOWER.x[0], GX.g2, H.auger],
-    ] as [number, number, number][]
+      // stops 0.3 under the parapet top: the drawing's brick behind starts there
+      [GX.g9, PRECAST_TOWER.x[0], PRECAST_TOWER.top - 0.3, "westPrecast"],
+      [PRECAST_TOWER.x[0], NEW_PRECAST.x[0], H.auger, "westPrecast"],
+      [NEW_PRECAST.x[0], GX.g2, H.auger, "west"],
+    ] as [number, number, number, "west" | "westPrecast"][]
   ).map(
-    ([x0, x1, top], i): Panel => ({
+    ([x0, x1, top, cut], i): Panel => ({
       name: `west-main-${i}`,
-      cut: "west",
+      cut,
       face: "west",
       a: [x0, GZ.K],
       b: [x1, GZ.K],
@@ -161,13 +170,15 @@ const RAW_PANELS: Panel[] = [
       // up to the 170' roofline; the stone band and the sheds above are 3D
       [GZ.B, SW.pierZ[0], H.l3, NORTH_ROOFLINE],
       [SW.pierZ[0], SW.pierZ[1], SW.head, NORTH_ROOFLINE],
-      // west of the pier only the precast tower, up to its 154' parapet
-      [SW.pierZ[1], GZ.K, H.l3, PRECAST_TOWER.top],
-    ] as [number, number, number, number][]
+      // west of the pier, up to the precast tower's 154' parapet; past the
+      // shed wall line it is the New Precast Structure (windows only)
+      [SW.pierZ[1], PRECAST_TOWER.z[1], H.l3, PRECAST_TOWER.top],
+      [PRECAST_TOWER.z[1], GZ.K, H.l3, PRECAST_TOWER.top - 0.3, "northPrecast"],
+    ] as [number, number, number, number, ("northUpper" | "northPrecast")?][]
   ).map(
-    ([z0, z1, bottom, top], i): Panel => ({
+    ([z0, z1, bottom, top, cut = "northUpper"], i): Panel => ({
       name: `north-main-upper-${i}`,
-      cut: "northUpper",
+      cut,
       face: "north",
       a: [GX.g9, z0],
       b: [GX.g9, z1],
