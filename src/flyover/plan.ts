@@ -438,22 +438,48 @@ export const RINGS = [
 ];
 
 // ---- North wing roof (A140, NE/NW axons) ----------------------------------
-// Roof vestibule on the wing roof (1/G160 NW axon, A402 north): lap-siding
-// walls on three sides, top 132'-5" at the outer (north) edge; a glass roof
-// with 5 bays of rafters slopes up to 134'-11" at the building wall. Door on
-// the west wall at its north end. sidingColor: grey, confirmed by Collin 2026-11-25.
-export const VESTIBULE = {
-  x: [GX.g9, 130.3] as [number, number],
-  z: [-44.9, -25.8] as [number, number],
+// "The Speakeasy" outbuilding on the wing roof (L3 plan on 040 A102, measured
+// at 54 px/ft on the sheet; 1/G160 NW axon; Collin 2026-11-26).
+//  - Lap-siding screen walls (grey, Collin 2026-11-25), all faces given as
+//    OUTER faces: a west wall from the building out to a short north leg
+//    (innerX); a 22" access door in a short wall perpendicular to the building
+//    joins that leg to the long outer north wall (outerX), which returns to the
+//    building as the east wall.
+//  - Inside: a storefront wall (along x = storefront.x, then back to the
+//    building along z = storefront.z) up to a sloped glass roof with 5 bays of
+//    rafters. The ~2 ft strip between the storefront and the siding is open.
+//  - Heights (A402 north): one sloped plane, 134'-11" at the building wall,
+//    132'-5" at the outer north wall; wall tops and the glass roof follow it.
+export const SPEAKEASY = {
   y0: H.l3,
-  wallLow: 32.4, // siding top at the north edge (A402)
-  roofHigh: 34.9, // glass roof at the building wall (A402)
+  // at the building wall: raised from A402's 134'-11" (it landed on the L3
+  // windows, heads 135'-7") to just above them; pitch increases (Collin 2026-11-26)
+  roofHigh: 36.0,
+  wallLow: 32.4, // at the outer north wall (A402)
+  wallT: 0.8,
+  // corner posts: walls terminate into them; siding color, flush with both wall
+  // faces and no taller than the walls (Collin 2026-11-26)
+  post: 0.8,
+  // west wall outer face: centered on the grid-9 north pier at z -45.1 (moved
+  // from A102's grid G line, Collin 2026-11-26); it starts at the pier face
+  westZ: -45.1 - 0.4,
+  eastZ: -23.0, // east wall outer face
+  // east wall: flat top, level with the sill of the window it returns to
+  // (A402 north, sill 130'-11"; Collin 2026-11-26)
+  eastTop: 30.9,
+  innerX: 128.88, // short north leg, outer face (west of the door)
+  outerX: 131.38, // long north wall, outer face (east of the door)
+  doorZ: [-37.2, -36.7] as [number, number], // the perpendicular door wall
+  door: { w: 1.83, h: 7 }, // 22" access door
+  storefront: { x: 128.4, z: -26.0, zN: -35.7 }, // zN: north run starts at the leg's end
   bays: 5,
-  wallT: 0.4,
   lap: 0.6, // siding course height (ft)
-  door: { x: [126.2, 129.2] as [number, number], h: 7.5 },
   sidingColor: "#a9a398",
 };
+// top of the sloped plane at x
+export const speakeasyTop = (x: number) =>
+  SPEAKEASY.roofHigh -
+  ((x - GX.g9) * (SPEAKEASY.roofHigh - SPEAKEASY.wallLow)) / (SPEAKEASY.outerX - GX.g9);
 export const RTUS = [
   {
     x: [167.8, 177.7] as [number, number],

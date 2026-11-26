@@ -357,6 +357,45 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   cls.set(out);
 }
 
+// 2b') Sharpen boundaries. The 15 px statistics window bleeds unhatched
+// concrete into brick (grey halos) and brick into blank strips. Re-check each
+// pixel with a small window: blank (no ink nearby) -> concrete; clearly
+// brick-hatched -> brick. "Blank" = part of a large connected un-inked area
+// (a brick or block cell is a small enclosed area; a concrete strip is not).
+{
+  const BLANK_MIN = 1500; // px; bigger than any hatch cell
+  const RH = 6; // hatch test radius
+  const big = new Uint8Array(N);
+  const seen = new Uint8Array(N);
+  const stack = [];
+  const open = (p) => alpha[p] && !glass[p] && !ink[p];
+  for (let s = 0; s < N; s++) {
+    if (seen[s] || !open(s)) continue;
+    const members = [];
+    stack.push(s); seen[s] = 1;
+    while (stack.length) {
+      const p = stack.pop(); members.push(p);
+      const x = p % W;
+      for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, p - W, p + W]) {
+        if (q >= 0 && q < N && !seen[q] && open(q)) { seen[q] = 1; stack.push(q); }
+      }
+    }
+    if (members.length >= BLANK_MIN) for (const p of members) big[p] = 1;
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const p = y * W + x;
+    if (!alpha[p] || glass[p]) continue;
+    const c = cls[p];
+    if (c !== CLS.metal && big[p]) {
+      cls[p] = CLS.concrete;
+    } else if (c !== CLS.metal && c !== CLS.brick && !big[p]) {
+      const n = box(S.n, x, y, RH) || 1;
+      const k = box(S.ink, x, y, RH);
+      if (k / n > 0.3 && box(S.tv, x, y, RH) / n > 0.3) cls[p] = CLS.brick;
+    }
+  }
+}
+
 // 2c) Hand-placed material zones from the drawings (later zones win)
 for (const z of overrides.zones) {
   const c = CLS[z.mat];

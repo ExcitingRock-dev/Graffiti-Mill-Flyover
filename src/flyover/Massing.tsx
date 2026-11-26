@@ -23,7 +23,9 @@ import {
   STAIR_LANDINGS,
   STAIRS,
   TOWER,
-  VESTIBULE,
+  SPEAKEASY,
+  PIER,
+  speakeasyTop,
   Volume,
   PIERS,
   WING_POLY,
@@ -870,9 +872,9 @@ const WING_C: XZ = [
   WING_POLY.reduce((s, p) => s + p[1], 0) / WING_POLY.length,
 ];
 
-// Roof vestibule (1/G160 NW axon): lap-siding walls, sloped glass roof with
-// black rafters, door on the west wall. The roof rises from the north edge
-// (x1) to the building wall (x0).
+// "The Speakeasy" (A102 L3 plan, 1/G160 NW axon): lap-siding screen walls, a
+// storefront under a sloped glass roof, and a 22" access door. All dimensions
+// are SPEAKEASY in plan.ts; wall tops and the roof follow speakeasyTop(x).
 let sidingTexture: THREE.CanvasTexture | null = null;
 const getSidingTexture = () => {
   if (sidingTexture) return sidingTexture;
@@ -889,84 +891,148 @@ const getSidingTexture = () => {
   const t = new THREE.CanvasTexture(cv);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
+  t.repeat.set(0.25, 1 / SPEAKEASY.lap); // extrude UVs are in feet: one lap per course
   sidingTexture = t;
   return t;
 };
-const RoofVestibule: React.FC = () => {
-  const v = VESTIBULE;
-  const [x0, x1] = v.x;
-  const [z0, z1] = v.z;
-  const depth = x1 - x0;
-  // side wall outline in (x, y): bottom, up the north edge, sloped top to the building
-  const sideGeo = useMemo(() => {
+
+// One siding wall, extruded through its thickness from its OUTER face.
+// axis "x": runs along x from a to b, outer face at z = face, thickness toward
+// z = face + inward * t; its top follows the sloped plane. axis "z": runs along
+// z from a to b, outer face at x = face, thickness toward -x; flat top.
+const SidingWall: React.FC<{
+  axis: "x" | "z";
+  a: number;
+  b: number;
+  face: number;
+  inward?: 1 | -1;
+  bottom?: number;
+  top?: number; // flat top instead of the sloped plane
+}> = ({ axis, a, b, face, inward = 1, bottom, top }) => {
+  const s = SPEAKEASY;
+  const y0 = bottom ?? s.y0;
+  const geo = useMemo(() => {
     const sh = new THREE.Shape();
-    sh.moveTo(x0, v.y0);
-    sh.lineTo(x1, v.y0);
-    sh.lineTo(x1, v.wallLow);
-    sh.lineTo(x0, v.roofHigh);
+    sh.moveTo(a, y0);
+    sh.lineTo(b, y0);
+    const yt = (u: number) => top ?? (axis === "x" ? speakeasyTop(u) : speakeasyTop(face));
+    sh.lineTo(b, yt(b));
+    sh.lineTo(a, yt(a));
     sh.closePath();
-    const g = new THREE.ShapeGeometry(sh);
-    // world-space UVs so the laps line up: u = x, v = y / lap
-    const pos = g.attributes.position;
-    const uv = new Float32Array(pos.count * 2);
-    for (let i = 0; i < pos.count; i++) {
-      uv[2 * i] = pos.getX(i) / 4;
-      uv[2 * i + 1] = pos.getY(i) / v.lap;
-    }
-    g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-    return g;
-  }, [x0, x1, v.y0, v.wallLow, v.roofHigh, v.lap]);
-  const northTex = useMemo(() => {
-    const t = getSidingTexture().clone();
-    t.repeat.set(1, (v.wallLow - v.y0) / v.lap);
-    t.needsUpdate = true;
-    return t;
-  }, [v.wallLow, v.y0, v.lap]);
-  const sidingMat = (
-    <meshLambertMaterial color={v.sidingColor} map={getSidingTexture()} side={THREE.DoubleSide} />
+    return new THREE.ExtrudeGeometry(sh, { depth: s.wallT, bevelEnabled: false });
+  }, [axis, a, b, face, y0, top, s.wallT]);
+  const pos: [number, number, number] =
+    axis === "x" ? [0, 0, inward === 1 ? face : face - s.wallT] : [face, 0, 0];
+  const rot: [number, number, number] = axis === "x" ? [0, 0, 0] : [0, -Math.PI / 2, 0];
+  return (
+    <group position={pos} rotation={rot}>
+      <mesh geometry={geo}>
+        <meshLambertMaterial color={s.sidingColor} map={getSidingTexture()} />
+      </mesh>
+      <Outline geometry={geo} />
+    </group>
   );
-  const roofLen = Math.hypot(depth, v.roofHigh - v.wallLow);
-  const roofPitch = Math.atan2(v.roofHigh - v.wallLow, depth);
-  const roofMid: [number, number, number] = [(x0 + x1) / 2, (v.roofHigh + v.wallLow) / 2, (z0 + z1) / 2];
-  const zw = z1 - z0;
+};
+
+const RoofVestibule: React.FC = () => {
+  const s = SPEAKEASY;
+  const x0 = GX.g9;
+  const sf = s.storefront;
+  const post = 0.3;
+  const pitch = Math.atan2(s.roofHigh - s.wallLow, s.outerX - x0);
+  // glass roof: building wall -> the short north leg, west wall -> storefront
+  const rz0 = s.westZ + s.wallT;
+  const rz1 = sf.z;
+  const rx1 = s.innerX;
+  const roofLen = (rx1 - x0) / Math.cos(pitch);
+  const roofMid: [number, number, number] = [
+    (x0 + rx1) / 2,
+    (speakeasyTop(x0) + speakeasyTop(rx1)) / 2 + 0.1,
+    (rz0 + rz1) / 2,
+  ];
+  const zw = rz1 - rz0;
+  // storefront glass along z = sf.z (sloped head) as a shape in x-y
+  const eastGlass = useMemo(() => {
+    const sh = new THREE.Shape();
+    sh.moveTo(x0 + PIER.proud, s.y0);
+    sh.lineTo(sf.x, s.y0);
+    sh.lineTo(sf.x, speakeasyTop(sf.x));
+    sh.lineTo(x0 + PIER.proud, speakeasyTop(x0));
+    sh.closePath();
+    return new THREE.ShapeGeometry(sh);
+  }, [x0, sf.x, s.y0]);
+  // corner post footprints, flush with both wall faces when post = wallT
+  const P = s.post, e = (P - s.wallT) / 2;
+  const pW: [number, number] = [s.innerX + e - P, s.innerX + e]; // west wall / north leg
+  const pWz: [number, number] = [s.westZ - e, s.westZ - e + P];
+  const pNE: [number, number] = [s.outerX + e - P, s.outerX + e]; // on the outer north wall line
+  const pDz: [number, number] = [s.doorZ[0] - e, s.doorZ[0] - e + P]; // door wall / outer north
+  const pNEz: [number, number] = [s.eastZ + e - P, s.eastZ + e]; // outer north / east
+  const thirds = (a: number, b: number) => [0, 1, 2, 3].map((k) => a + ((b - a) * k) / 3);
   return (
     <group>
-      {/* side walls (west z0, east z1) */}
-      {[z0, z1].map((z) => (
-        <mesh key={z} geometry={sideGeo} position={[0, 0, z]}>
-          {sidingMat}
-        </mesh>
+      {/* siding screen walls, ending at the corner posts */}
+      <SidingWall axis="x" a={x0 + PIER.proud} b={pW[0]} face={s.westZ} inward={1} />
+      <SidingWall axis="z" a={pWz[1]} b={sf.zN} face={s.innerX} />
+      <SidingWall axis="z" a={pDz[1]} b={pNEz[0]} face={s.outerX} />
+      <SidingWall axis="x" a={x0} b={pNE[0]} face={s.eastZ} inward={-1} top={s.eastTop} />
+      {/* perpendicular door wall: 22" access door, siding above */}
+      <BoxXYZ x={[s.innerX, pNE[0]]} y={[s.y0, s.y0 + s.door.h]} z={s.doorZ} color={C.rail} />
+      <SidingWall axis="x" a={s.innerX} b={pNE[0]} face={s.doorZ[0]} inward={1} bottom={s.y0 + s.door.h} />
+      {/* corner posts */}
+      <BoxXYZ x={pW} y={[s.y0, speakeasyTop(pW[1])]} z={pWz} color={s.sidingColor} />
+      <BoxXYZ x={pNE} y={[s.y0, speakeasyTop(pNE[1])]} z={pDz} color={s.sidingColor} />
+      <BoxXYZ x={pNE} y={[s.y0, speakeasyTop(pNE[1])]} z={pNEz} color={s.sidingColor} />
+      {/* storefront, north run (x = sf.x) */}
+      <BoxXYZ
+        x={[sf.x - 0.05, sf.x + 0.05]}
+        y={[s.y0, speakeasyTop(sf.x)]}
+        z={[sf.zN, sf.z]}
+        color={C.glass}
+        lineColor={C.rail}
+        opacity={0.75}
+      />
+      {thirds(sf.zN, sf.z).map((z) => (
+        <BoxXYZ
+          key={"n" + z}
+          x={[sf.x - post / 2, sf.x + post / 2]}
+          y={[s.y0, speakeasyTop(sf.x)]}
+          z={[z - post / 2, z + post / 2]}
+          color={C.rail}
+        />
       ))}
-      {/* north wall */}
-      <mesh position={[x1, (v.y0 + v.wallLow) / 2, (z0 + z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[zw, v.wallLow - v.y0]} />
-        <meshLambertMaterial color={v.sidingColor} map={northTex} side={THREE.DoubleSide} />
+      {/* storefront, east run (z = sf.z), back to the building */}
+      <mesh geometry={eastGlass} position={[0, 0, sf.z]}>
+        <meshBasicMaterial color={C.glass} transparent opacity={0.75} side={THREE.DoubleSide} />
       </mesh>
-      {/* corner trim */}
-      {[z0, z1].map((z) => (
-        <mesh key={'t' + z} position={[x1, (v.y0 + v.wallLow) / 2, z]}>
-          <boxGeometry args={[0.35, v.wallLow - v.y0, 0.35]} />
-          <meshLambertMaterial color={C.frame} />
-        </mesh>
+      {thirds(x0 + PIER.proud + post / 2, sf.x).map((x) => (
+        <BoxXYZ
+          key={"e" + x}
+          x={[x - post / 2, x + post / 2]}
+          y={[s.y0, speakeasyTop(x)]}
+          z={[sf.z - post / 2, sf.z + post / 2]}
+          color={C.rail}
+        />
       ))}
-      {/* door on the west wall, north end */}
-      <mesh position={[(v.door.x[0] + v.door.x[1]) / 2, v.y0 + v.door.h / 2, z0 - 0.08]}>
-        <boxGeometry args={[v.door.x[1] - v.door.x[0], v.door.h, 0.15]} />
-        <meshLambertMaterial color={C.metal} />
-      </mesh>
+      {[s.y0 + 0.15, s.y0 + 3].map((y) => (
+        <BoxXYZ key={"sill" + y} x={[x0 + PIER.proud, sf.x]} y={[y - 0.15, y + 0.15]} z={[sf.z - post / 2, sf.z + post / 2]} color={C.rail} />
+      ))}
+      {[s.y0 + 0.15, s.y0 + 3].map((y) => (
+        <BoxXYZ key={"nsill" + y} x={[sf.x - post / 2, sf.x + post / 2]} y={[y - 0.15, y + 0.15]} z={[sf.zN, sf.z]} color={C.rail} />
+      ))}
       {/* glass roof + rafters, sloping up to the building */}
-      <group position={roofMid} rotation={[0, 0, -roofPitch]}>
+      <group position={roofMid} rotation={[0, 0, -pitch]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[roofLen, zw]} />
           <meshBasicMaterial color="#cfe0e6" transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
-        {Array.from({ length: v.bays + 1 }, (_, k) => (
-          <mesh key={k} position={[0, 0.15, -zw / 2 + (zw * k) / v.bays]}>
-            <boxGeometry args={[roofLen + 0.4, 0.4, 0.3]} />
+        {Array.from({ length: s.bays + 1 }, (_, k) => (
+          <mesh key={k} position={[0, 0.15, -zw / 2 + (zw * k) / s.bays]}>
+            <boxGeometry args={[roofLen + 0.3, 0.4, 0.3]} />
             <meshLambertMaterial color={C.rail} />
           </mesh>
         ))}
-        {/* edge beam along the north edge */}
+        {/* edge beam over the north leg / storefront */}
         <mesh position={[roofLen / 2, 0.15, 0]}>
           <boxGeometry args={[0.4, 0.5, zw]} />
           <meshLambertMaterial color={C.rail} />

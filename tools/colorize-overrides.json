@@ -97,6 +97,26 @@
           1537
         ],
         "why": "elevator addition, precast (PC) -> grey precast texture (040 A401 note: NEW ELEVATOR ENCLOSURE, PRE-CAST CONCRETE; Collin 2026-11-25)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          2497,
+          1048,
+          2520,
+          1107
+        ],
+        "why": "PM panel beside the L3 storefront at the SW corner (040 A401)"
+      },
+      {
+        "mat": "concrete",
+        "rect": [
+          2520,
+          1090,
+          2560,
+          1200
+        ],
+        "why": "corner strip; leader mark read as a dark blob"
       }
     ],
     "notGlass": [
@@ -528,6 +548,56 @@
           1510
         ],
         "why": "stair/elevator tower (PM)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          179,
+          832,
+          275,
+          884
+        ],
+        "why": "PM panel above L3 door, grids K-H (040 A402)"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          179,
+          884,
+          224,
+          898
+        ],
+        "why": "PM panel above L3 door, left of door"
+      },
+      {
+        "mat": "metal",
+        "rect": [
+          664,
+          1204,
+          761,
+          1270
+        ],
+        "why": "PM panel around L2 door beside tower (040 A402)"
+      },
+      {
+        "mat": "concrete",
+        "rect": [
+          762,
+          1340,
+          788,
+          1510
+        ],
+        "why": "unhatched strip between L1 door and W75"
+      },
+      {
+        "mat": "concrete",
+        "rect": [
+          761,
+          1130,
+          788,
+          1300
+        ],
+        "why": "unhatched strip at the tower edge, L2"
       }
     ],
     "notGlass": [

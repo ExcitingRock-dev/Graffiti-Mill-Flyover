@@ -184,8 +184,7 @@ export const Flyover: React.FC<FlyoverProps> = ({
   return (
     <AbsoluteFill
       style={{
-        background: `linear-gradient(${SKY_TOP}, ${PAPER_GROUND})`,
-        translate: "-339.3px -8.3px"
+        background: `linear-gradient(${SKY_TOP}, ${PAPER_GROUND})`
       }}
     >
       {textures ? (
