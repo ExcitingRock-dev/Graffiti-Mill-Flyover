@@ -23,6 +23,8 @@ export const VIEWS: View[] = [
   { name: "Wing roof", pos: [200, 70, 40], look: [150, 24, -20] },
   { name: "Speakeasy", pos: [160, 38, -12], look: [128, 30, -36] },
   { name: "Speakeasy back wall", pos: [140, 44, -35.6], look: [118.4, 29.6, -35.6] },
+  { name: "Roof above the Speakeasy (NE)", pos: [152, 96, 14], look: [112, 76, -24] },
+  { name: "Sheds from the north", pos: [170, 84, -26], look: [118, 80, -26] },
 ];
 
 type Readout = (text: string) => void;

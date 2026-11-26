@@ -10,6 +10,8 @@ import {
   GX,
   GZ,
   H,
+  NORTH_ROOFLINE,
+  PRECAST_TOWER,
   SPEAKEASY_WALL as SW,
   TOWER,
   TOWER_OPEN,
@@ -85,7 +87,10 @@ const eastPanel = (name: string, a: XZ, b: XZ, yTop: number): Panel => ({
 
 const RAW_PANELS: Panel[] = [
   // ---- true east (A403)
-  eastPanel("east-main", [GX.g2, GZ.B], [GX.g9, GZ.B], H.auger),
+  // over grid 7-9 the drawing stops at the 170' roofline: the corrugated
+  // sheds above it are 3D (Sheds.tsx)
+  eastPanel("east-main", [GX.g2, GZ.B], [88.0, GZ.B], H.auger),
+  eastPanel("east-main-sheds", [88.0, GZ.B], [GX.g9, GZ.B], NORTH_ROOFLINE),
   eastPanel(
     "tower-east",
     [TOWER.x0, TOWER.z1],
@@ -97,16 +102,25 @@ const RAW_PANELS: Panel[] = [
   // one straight oblique wall, grid 10 corner to grid 13 (2/A102)
   eastPanel("wing-east", [GX.g10, WING_EAST.z10], [GX.g13, WING_EAST.z13], WING_ROOF.cap),
   // ---- true west (A401)
-  {
-    name: "west-main",
-    cut: "west",
-    face: "west",
-    a: [GX.g9, GZ.K],
-    b: [GX.g2, GZ.K],
-    sx: [west.px(GX.g9), west.px(GX.g2)],
-    sy: [row(west.l1, H.auger), row(west.l1, GRADE)],
-    l1: west.l1,
-  },
+  // west main face: over the precast tower (grid 9 back to the elevator
+  // enclosure) the drawing stops at its 154' parapet; nothing stands above it
+  ...(
+    [
+      [GX.g9, PRECAST_TOWER.x[0], PRECAST_TOWER.top],
+      [PRECAST_TOWER.x[0], GX.g2, H.auger],
+    ] as [number, number, number][]
+  ).map(
+    ([x0, x1, top], i): Panel => ({
+      name: `west-main-${i}`,
+      cut: "west",
+      face: "west",
+      a: [x0, GZ.K],
+      b: [x1, GZ.K],
+      sx: [west.px(x0), west.px(x1)],
+      sy: [row(west.l1, top), row(west.l1, GRADE)],
+      l1: west.l1,
+    }),
+  ),
   {
     // oblique wall (1/A100): the elevation is a projection, so x alone sets the mapping
     name: "west-wing",
@@ -144,19 +158,21 @@ const RAW_PANELS: Panel[] = [
   // new window head, the drawing is replaced by SpeakeasyWall (3D masonry + glass).
   ...(
     [
-      [GZ.B, SW.pierZ[0], H.l3],
-      [SW.pierZ[0], SW.pierZ[1], SW.head],
-      [SW.pierZ[1], GZ.K, H.l3],
-    ] as [number, number, number][]
+      // up to the 170' roofline; the stone band and the sheds above are 3D
+      [GZ.B, SW.pierZ[0], H.l3, NORTH_ROOFLINE],
+      [SW.pierZ[0], SW.pierZ[1], SW.head, NORTH_ROOFLINE],
+      // west of the pier only the precast tower, up to its 154' parapet
+      [SW.pierZ[1], GZ.K, H.l3, PRECAST_TOWER.top],
+    ] as [number, number, number, number][]
   ).map(
-    ([z0, z1, bottom], i): Panel => ({
+    ([z0, z1, bottom, top], i): Panel => ({
       name: `north-main-upper-${i}`,
       cut: "northUpper",
       face: "north",
       a: [GX.g9, z0],
       b: [GX.g9, z1],
       sx: [north.px(z0), north.px(z1)],
-      sy: [row(north.l1, H.auger), row(north.l1, bottom)], // down to the wing roof deck
+      sy: [row(north.l1, top), row(north.l1, bottom)], // down to the wing roof deck
       l1: north.l1,
     }),
   ),

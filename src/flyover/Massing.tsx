@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import * as THREE from "three";
+import { CorrugatedShed } from "./Sheds";
 import { SpeakeasyWall } from "./SpeakeasyWall";
 import {
+  EAST_ROOF_EDGE,
+  NORTH_BAND,
+  NORTH_ROOFLINE,
+  NORTH_WEST_WALL,
+  PRECAST_TOWER,
   speakeasyPocket,
   CONCRETE_ROOF,
   DECKS,
@@ -694,19 +700,108 @@ const Rings: React.FC = () => (
 );
 
 type Range = [number, number];
-const mainCorePieces = (): { x: Range; y: Range; z: Range }[] => {
-  const X: Range = [MAIN.x0 + 0.3, MAIN.x1 - 0.3];
-  const Y: Range = [0, MAIN.top - 0.5];
-  const Z: Range = [MAIN.z0 + 0.3, MAIN.z1 - 0.3];
+type Box3 = { x: Range; y: Range; z: Range };
+// box A minus box B, as up to six boxes
+const subtractBox = (A: Box3, B: Box3): Box3[] => {
+  const cut = (a: Range, b: Range): Range => [Math.max(a[0], b[0]), Math.min(a[1], b[1])];
+  const ix = cut(A.x, B.x);
+  const iy = cut(A.y, B.y);
+  const iz = cut(A.z, B.z);
+  if (ix[0] >= ix[1] || iy[0] >= iy[1] || iz[0] >= iz[1]) return [A];
+  const out: Box3[] = [];
+  if (A.x[0] < ix[0]) out.push({ ...A, x: [A.x[0], ix[0]] });
+  if (ix[1] < A.x[1]) out.push({ ...A, x: [ix[1], A.x[1]] });
+  if (A.y[0] < iy[0]) out.push({ x: ix, y: [A.y[0], iy[0]], z: A.z });
+  if (iy[1] < A.y[1]) out.push({ x: ix, y: [iy[1], A.y[1]], z: A.z });
+  if (A.z[0] < iz[0]) out.push({ x: ix, y: iy, z: [A.z[0], iz[0]] });
+  if (iz[1] < A.z[1]) out.push({ x: ix, y: iy, z: [iz[1], A.z[1]] });
+  return out;
+};
+const subtractAll = (boxes: Box3[], holes: Box3[]) =>
+  holes.reduce((acc, h) => acc.flatMap((b) => subtractBox(b, h)), boxes);
+// nothing above the precast tower's roof (the core stops 0.2 short of the
+// elevator enclosure's north wall so the two faces don't fight)
+const aboveTower: Box3 = {
+  x: [PRECAST_TOWER.x[0] - 0.2, MAIN.x1 + 1],
+  y: [PRECAST_TOWER.roof, MAIN.top + 1],
+  z: [MAIN.z0 - 1, PRECAST_TOWER.z[1] + 0.2], // core face sits 0.2 behind the shed / band walls
+};
+// the corrugated sheds are hollow skins: no core or roof slab inside them
+const insideSheds: Box3[] = HEAD_HOUSE.filter((v) => v.skin === "corrugated").map((v) => ({
+  x: [v.x[0], v.x[1] + 1],
+  y: [v.base, MAIN.top + 1],
+  z: [v.z[0], v.z[1] + 1],
+}));
+const mainCorePieces = (): Box3[] => {
   const p = speakeasyPocket();
-  const fx: Range = [p.x[0], X[1]];
+  return subtractAll(
+    [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - 0.5], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
+    [p, aboveTower, ...insideSheds],
+  );
+};
+const mainRoofSlab = (): Box3[] =>
+  subtractAll([{ x: [MAIN.x0, MAIN.x1], y: [MAIN.top - 0.5, MAIN.top], z: [MAIN.z0, MAIN.z1] }], [
+    aboveTower,
+    ...insideSheds,
+  ]);
+
+const eastRoofEdgePoly = (): XZ[] => {
+  const e = EAST_ROOF_EDGE;
+  const c = e.cornerCap;
+  // edge strip (out to the band's face), plus the cap stepping down the
+  // north face over the corner column
   return [
-    { x: [X[0], p.x[0]], y: Y, z: Z },
-    { x: fx, y: [Y[0], p.y[0]], z: Z },
-    { x: fx, y: [p.y[1], Y[1]], z: Z },
-    { x: fx, y: p.y, z: [Z[0], p.z[0]] },
-    { x: fx, y: p.y, z: [p.z[1], Z[1]] },
+    [e.x[0], e.z[1]],
+    [e.x[1], e.z[1]],
+    [e.x[1], e.z[0]],
+    [c.x[1], e.z[0]],
+    [c.x[1], c.z[0]],
+    [c.x[0], c.z[0]],
+    [c.x[0], e.z[0]],
+    [e.x[0], e.z[0]],
   ];
+};
+
+// The stone band capping the north face: flat bottom, gently pitched top
+const NorthBand: React.FC = () => {
+  const b = NORTH_BAND;
+  const geo = useMemo(() => {
+    // profile in (u = -z, y), extruded along +x after the rotation below
+    const s = new THREE.Shape(
+      (
+        [
+          [b.z[0], b.bottom],
+          [b.z[0], b.endTop],
+          [b.peakZ, b.peakTop],
+          [b.z[1], b.endTop],
+          [b.z[1], b.bottom],
+        ] as [number, number][]
+      ).map(([z, y]) => new THREE.Vector2(-z, y)),
+    );
+    return new THREE.ExtrudeGeometry(s, { depth: b.back + b.proud, bevelEnabled: false });
+  }, [b]);
+  return (
+    <Solid
+      geometry={geo}
+      color={C.precast}
+      position={[GX.g9 - b.back, 0, 0]}
+      rotation={[0, Math.PI / 2, 0]}
+    />
+  );
+};
+
+// Precast tower roof edge (north and west) and the brick / metal wall
+// rising from its roof on the east side
+const PrecastTowerTop: React.FC = () => {
+  const t = PRECAST_TOWER;
+  const w = NORTH_WEST_WALL;
+  return (
+    <group>
+      <BoxXYZ x={[t.x[1] - t.parapetT, t.x[1]]} y={[t.roof, t.top]} z={t.z} color={C.precast} />
+      <BoxXYZ x={t.x} y={[t.roof, t.top]} z={[t.z[0], t.z[0] + t.parapetT]} color={C.precast} />
+      <BoxXYZ x={[t.x[0], GX.g9]} y={[w.brickTop, NORTH_ROOFLINE]} z={[w.z - 0.1, w.z]} color={C.metal} lineColor={C.lineOnDark} />
+    </group>
+  );
 };
 
 export const Massing: React.FC = () => (
@@ -754,12 +849,13 @@ export const Massing: React.FC = () => (
     />
 
     {/* Roofs */}
-    <BoxXYZ
-      x={[MAIN.x0, MAIN.x1]}
-      y={[MAIN.top - 0.5, MAIN.top]}
-      z={[MAIN.z0, MAIN.z1]}
-      color={C.roof}
-    />
+    {mainRoofSlab().map((b, i) => (
+      <BoxXYZ key={"slab" + i} x={b.x} y={b.y} z={b.z} color={C.roof} />
+    ))}
+    <NorthBand />
+    {/* one L-shaped solid (edge + corner cap) so no seams or doubled outlines show */}
+    <Prism poly={eastRoofEdgePoly()} y0={EAST_ROOF_EDGE.y[0]} y1={EAST_ROOF_EDGE.y[1]} color={C.precast} />
+    <PrecastTowerTop />
     <BoxXYZ
       x={FLAT_ROOF.x}
       y={[FLAT_ROOF.y, MAIN.top + 0.05]}
@@ -777,13 +873,22 @@ export const Massing: React.FC = () => (
     />
     <BoxXYZ
       x={CONCRETE_ROOF.x}
-      y={[CONCRETE_ROOF.y, CONCRETE_ROOF.y + 0.3]}
+      y={[CONCRETE_ROOF.y - 0.3, CONCRETE_ROOF.y]}
       z={CONCRETE_ROOF.z}
       color={C.concrete}
     />
-    {HEAD_HOUSE.map((v) => (
-      <GableVolume key={v.name} v={v} />
-    ))}
+    {HEAD_HOUSE.map((v) =>
+      v.skin === "corrugated" ? (
+        <CorrugatedShed
+          key={v.name}
+          v={v}
+          vent={v.name === "HH west shed"}
+          eastDoor={v.name === "HH east shed"}
+        />
+      ) : (
+        <GableVolume key={v.name} v={v} />
+      ),
+    )}
 
     {/* Wing roof deck and its pieces */}
     <Prism poly={WING_POLY} y0={WING_ROOF.y - 0.3} y1={WING_ROOF.y} color={C.deck} holes={WELL_HOLES} />

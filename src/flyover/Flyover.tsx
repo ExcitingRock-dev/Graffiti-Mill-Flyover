@@ -34,15 +34,16 @@ const GRID_LINE = "#cfcbc0";
 // mode "review": every-side orbit + detail passes (reviewPath.ts)
 // mode "cinematic": the original 15 s descending orbit (CAMERA above)
 // checkAngle: fixed review camera (degrees, 90 = from true east)
-const CameraRig: React.FC<{ checkAngle?: number; mode: FlyoverMode }> = ({
+const CameraRig: React.FC<{ checkAngle?: number; mode: FlyoverMode; cam?: CheckCam }> = ({
   checkAngle,
   mode,
+  cam,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
 
-  const review = mode === "review" && checkAngle === undefined;
+  const review = mode === "review" && checkAngle === undefined && !cam;
   const rc = reviewCamera(frame);
   useLayoutEffect(() => {
     if (!review) return;
@@ -78,8 +79,19 @@ const CameraRig: React.FC<{ checkAngle?: number; mode: FlyoverMode }> = ({
       : CAMERA.startTarget.map((v, i) => lerp(v, CAMERA.endTarget[i], t))
   ) as [number, number, number];
 
+  // fixed check camera (feet), e.g. a view copied from the explorer readout
   useLayoutEffect(() => {
-    if (review) return;
+    if (!cam) return;
+    camera.fov = CAMERA.fov;
+    camera.near = 0.5;
+    camera.far = 6000;
+    camera.position.set(...cam.pos);
+    camera.lookAt(...cam.look);
+    camera.updateProjectionMatrix();
+  }, [camera, cam]);
+
+  useLayoutEffect(() => {
+    if (review || cam) return;
     camera.fov = CAMERA.fov;
     camera.near = 1;
     camera.far = 6000;
@@ -173,11 +185,13 @@ const ReviewCaption: React.FC = () => {
 };
 
 export type FlyoverMode = "review" | "cinematic";
-export type FlyoverProps = { checkAngle?: number; mode?: FlyoverMode };
+type CheckCam = { pos: [number, number, number]; look: [number, number, number] };
+export type FlyoverProps = { checkAngle?: number; mode?: FlyoverMode; cam?: CheckCam };
 
 export const Flyover: React.FC<FlyoverProps> = ({
   checkAngle,
   mode = "cinematic",
+  cam,
 }) => {
   const { width, height } = useVideoConfig();
   const textures = useFacadeTextures();
@@ -197,12 +211,12 @@ export const Flyover: React.FC<FlyoverProps> = ({
           <fog attach="fog" args={[PAPER_GROUND, 700, 1900]} />
           <ambientLight intensity={1.6} />
           <directionalLight position={[-200, 400, 300]} intensity={1.4} />
-          <CameraRig checkAngle={checkAngle} mode={mode} />
+          <CameraRig checkAngle={checkAngle} mode={mode} cam={cam} />
           <Ground />
           <Building textures={textures} />
         </ThreeCanvas>
       ) : null}
-      {mode === "review" && checkAngle === undefined ? (
+      {mode === "review" && checkAngle === undefined && !cam ? (
         <ReviewCaption />
       ) : (
         <TitleCard />

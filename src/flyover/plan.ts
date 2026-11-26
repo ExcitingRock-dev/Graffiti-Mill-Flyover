@@ -46,6 +46,65 @@ export const H = {
 // ---- Main block (5 stories + E6) ------------------------------------------
 export const MAIN = { x0: GX.g2, x1: GX.g9, z0: GZ.K, z1: GZ.B, top: H.auger };
 
+// ---- Roof over the north end (grid 7-9, above the Speakeasy) ---------------
+// Collin 2026-11-26 from 4/G160 NE axon + 1/G160 NW axon, measured on A402
+// north, A403 east, A401 west and the A140 roof plan:
+// - the masonry stops at the first roofline, 170'-0" (A403 brick top, A402 band
+//   bottom); two gabled metal sheds sit on it
+// - the north face is capped by a slightly pitched stone (speckled precast)
+//   band: flat bottom at 170'-0", 172'-9" at the ends, 175'-0" at the peak over
+//   the middle column; it projects past the face and overhangs both ends
+// - the precast tower (grid 7-9 x K to the shed wall) tops out at 154'-0"; the
+//   massing above it does not exist (the elevation's background linework there
+//   had been painted black)
+export const NORTH_ROOFLINE = 70.0;
+// underside of the 8" east roof edge: the east columns stop here
+export const EAST_EDGE_UNDERSIDE = NORTH_ROOFLINE - 0.67;
+export const NORTH_BAND = {
+  z: [-5.3, -47.7] as [number, number], // overhangs the walls at z -6 and -46.3 (A402)
+  bottom: NORTH_ROOFLINE,
+  endTop: 72.7,
+  peakTop: 75.0,
+  peakZ: -25.85,
+  proud: 0.9, // projection past the north face
+  back: 0.3, // into the wall
+};
+// the 170' roofline on the east face: a precast edge standing proud of the
+// wall, its face flush with the stone band's east butt end (Collin 2026-11-26).
+// Runs from the stair tower under the band's end, out flush with the band's
+// north face; the sheds sit on top of it. At the NE corner it widens into a cap
+// over the corner column, so the column tops out under it (no shared planes).
+export const EAST_ROOF_EDGE = {
+  x: [87.7, GX.g9 + NORTH_BAND.proud] as [number, number], // TOWER.x1 to the band's face
+  y: [EAST_EDGE_UNDERSIDE, NORTH_ROOFLINE] as [number, number], // 8" thick
+  z: [GZ.B - 0.3, NORTH_BAND.z[0]] as [number, number], // into the wall, out to the band's end
+  // over the 1.5 ft corner column, its faces flush with the column's (PIER.proud 0.3, defined further down)
+  cornerCap: { x: [GX.g9 - 1.5, GX.g9 + 0.3] as [number, number], z: [GZ.B - 1.5, GZ.B + 0.3] as [number, number] },
+};
+
+export const PRECAST_TOWER = {
+  x: [94.6, GX.g9] as [number, number], // A140: parapet to the elevator enclosure wall
+  z: [GZ.K, -46.3] as [number, number], // to the west shed's wall
+  top: 54.0, // 154'-0" parapet top (A402, A401)
+  roof: 53.0,
+  parapetT: 0.67,
+};
+// Openings in the two corrugated sheds (A402 north, A403 east)
+export const NORTH_SHEDS = {
+  // north gable of the west shed, the box with an X just above the stone band:
+  // a louvered vent recessed 2" (Collin 2026-11-26)
+  vent: { z: [-43.3, -40.3] as [number, number], y: [75.26, 77.11] as [number, number], recess: 2 / 12 },
+  // east shed, east wall: new sectional overhead door replacing the blown-out one
+  // (horizontal-panel box on A403, 10'-0" x 10'-8" on the roofline)
+  door: { x: [105.8, 115.8] as [number, number], y: [70.3, 81.0] as [number, number], color: "#cfcdc6" },
+  // A403: "NEW GLAZED ENCLOSURE @ EXISTING STEEL FRAME", east wall, south end
+  glazing: { x: [88.1, 102.1] as [number, number], y: [NORTH_ROOFLINE, 86.2] as [number, number], bays: 4 },
+  roofThick: 0.25,
+};
+// the north block's west wall above the precast roof (A401): brick to 161'-6",
+// metal band to the roofline
+export const NORTH_WEST_WALL = { brickTop: 61.5, z: PRECAST_TOWER.z[1] };
+
 // Stair 1 tower with the round windows; gable roof, ridge along x
 export const TOWER = {
   x0: 69.2,
@@ -185,10 +244,12 @@ export const PIERS: Pier[] = [
   // ---- main block corners
   cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, MAIN_TOP),
   cornerPier("main SW corner", [GX.g2, GZ.K], [1, 0], [0, 1], 2, GRADE, MAIN_TOP),
-  cornerPier("main NE corner, above wing roof", [GX.g9, GZ.B], [-1, 0], [0, -1], 1.5, H.l3, MAIN_TOP),
+  // stops under the stone band (A402)
+  cornerPier("main NE corner, above wing roof", [GX.g9, GZ.B], [-1, 0], [0, -1], 1.5, H.l3, EAST_EDGE_UNDERSIDE),
   // ---- main east (A403): grids 3, 4, 7
+  // grid 7 stops at the 170' roofline under the sheds (Collin 2026-11-26)
   ...[37.1, 57.2, 97.4].map((x) =>
-    wallPier(`main east x ${x}`, [x, GZ.B], [0, 1], 2, GRADE, EAST_TOP),
+    wallPier(`main east x ${x}`, [x, GZ.B], [0, 1], 2, GRADE, x === 97.4 ? EAST_EDGE_UNDERSIDE : EAST_TOP),
   ),
   // ---- main west (A401): grids 3, 4, and grid 5 beside the elevator enclosure
   ...[37.35, 57.2, 75.7].map((x) =>
@@ -200,7 +261,7 @@ export const PIERS: Pier[] = [
   ),
   // ---- main north above the wing roof (A402 right)
   ...[-26.1, -45.1].map((z) =>
-    wallPier(`main north z ${z}`, [GX.g9, z], [1, 0], 2, H.l3, MAIN_TOP),
+    wallPier(`main north z ${z}`, [GX.g9, z], [1, 0], 2, H.l3, NORTH_BAND.bottom),
   ),
   // ---- wing NW corner (oblique west wall), grade to the brick band at 124'
   cornerPier("wing NW corner", [GX.g13, WING_WEST.z13], WING_W_IN, [0, 1], 1.5, GRADE, WING_BAND),
@@ -231,6 +292,10 @@ export type Volume = {
   ridge: number; // = eave for flat tops
   axis: "x" | "z"; // ridge direction
   mat: "metal" | "precast";
+  // existing corrugated steel skin (Sheds.tsx) instead of a flat solid; axis x only
+  skin?: "corrugated";
+  // roof overhang past the walls (ft): north gable end, z[0] side, z[1] side
+  overhang?: { end: number; a: number; b: number };
 };
 export const HEAD_HOUSE: Volume[] = [
   {
@@ -277,7 +342,7 @@ export const HEAD_HOUSE: Volume[] = [
     name: "HE elevator addition",
     x: [75.6, 94.6],
     z: [-61.7, -46.7],
-    base: 77,
+    base: PRECAST_TOWER.top, // its north wall shows above the precast tower roof
     eave: 96,
     ridge: 96,
     axis: "x",
@@ -303,22 +368,39 @@ export const HEAD_HOUSE: Volume[] = [
     axis: "z",
     mat: "metal",
   },
+  // two gabled metal sheds on the 170' roofline, gable ends to the north,
+  // ridges along x (A140 seams; A402 north for the heights)
   {
-    name: "HH grid 7-9",
-    x: [87.9, GX.g9],
-    z: [-46.1, -6.8],
-    base: 77,
-    eave: 89,
-    ridge: 94,
+    name: "HH east shed",
+    x: [88.0, GX.g9],
+    z: [-25.8, GZ.B],
+    base: NORTH_ROOFLINE,
+    eave: 88.4, // 188'-5"
+    ridge: 89.6, // 189'-7"
     axis: "x",
     mat: "metal",
+    skin: "corrugated",
+    // 12" eaves (Collin 2026-11-26); none on the west side, it dies into the taller shed
+    overhang: { end: 1, a: 0, b: 1 },
+  },
+  {
+    name: "HH west shed",
+    x: [88.0, GX.g9],
+    z: [PRECAST_TOWER.z[1], -25.8],
+    base: NORTH_ROOFLINE,
+    eave: 92.9, // 192'-11"
+    ridge: 94.3, // 194'-4"
+    axis: "x",
+    mat: "metal",
+    skin: "corrugated",
+    overhang: { end: 1, a: 1, b: 1 },
   },
 ];
-// Concrete flat roof (speckle on A140) at grid 7-9, K-J
+// Concrete flat roof (speckle on A140) = the precast tower's roof
 export const CONCRETE_ROOF = {
-  x: [94.6, GX.g9] as [number, number],
-  z: [-62, -46.7] as [number, number],
-  y: 77,
+  x: PRECAST_TOWER.x,
+  z: PRECAST_TOWER.z,
+  y: PRECAST_TOWER.roof,
 };
 // South flat roof with heavy black parapet (SE axon)
 export const FLAT_ROOF = {
