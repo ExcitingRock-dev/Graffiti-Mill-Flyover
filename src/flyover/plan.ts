@@ -141,6 +141,9 @@ export const WEST_ROOF_EDGE = {
   x: [PRECAST_TOWER.x[0], GX.g9 + NORTH_BAND.proud] as [number, number],
   y: EAST_ROOF_EDGE.y,
   z: [NORTH_BAND.z[1], PRECAST_TOWER.z[1] + 0.3] as [number, number], // band's end, into the wall
+  // as on the east side: over the NW corner column the edge widens east to the
+  // column's east side, so the column tops out under it (Collin 2026-11-26)
+  cornerCap: { x0: NORTH_WEST_WALL.columns[0].x[0], z1: -44.1 },
 };
 
 // Stair 1 tower with the round windows; gable roof, ridge along x
@@ -278,6 +281,14 @@ const WING_BAND = 24;
 const WING_E_DIR = unit([GX.g10, WING_EAST.z10], [GX.g13, WING_EAST.z13]);
 const WING_E_OUT: XZ = [-WING_E_DIR[1], WING_E_DIR[0]];
 
+// the NW corner column's plan extent (see PIERS)
+export const NW_CORNER_COLUMN = {
+  x: [NORTH_WEST_WALL.columns[0].x[0], GX.g9 + PIER.proud] as [number, number],
+  z: [PRECAST_TOWER.z[1] - PIER.proud, WEST_ROOF_EDGE.cornerCap.z1] as [number, number], // west edge, east edge
+};
+// the door and low window on the precast north face (A402, z -46.4 to -55.0 on
+// the sheet) move west to clear that column's west edge
+export const NORTH_DOOR_SHIFT = { z: [PRECAST_TOWER.z[1], -56.0] as [number, number], by: 0.4 };
 export const PIERS: Pier[] = [
   // ---- main block corners
   cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, MAIN_TOP),
@@ -298,11 +309,24 @@ export const PIERS: Pier[] = [
     wallPier(`main south z ${z}`, [GX.g2, z], [-1, 0], 2, GRADE, MAIN_TOP),
   ),
   // ---- main north above the wing roof (A402 right)
-  ...[-26.1, -45.1].map((z) =>
-    wallPier(`main north z ${z}`, [GX.g9, z], [1, 0], 2, H.l3, NORTH_BAND.bottom),
-  ),
+  wallPier("main north z -26.1", [GX.g9, -26.1], [1, 0], 2, H.l3, NORTH_BAND.bottom),
+  // NW corner: ONE column, from the wing roof up to the roof edge. It wraps the
+  // grid -45.1 pier on the north face and the north block's NW corner column
+  // above the precast roof; its west edge (z -46.6) runs down the New Precast
+  // Structure's north face, proud of the concrete (Collin 2026-11-26)
+  {
+    name: "main NW corner column",
+    y0: H.l3,
+    top: EAST_EDGE_UNDERSIDE,
+    poly: [
+      [NW_CORNER_COLUMN.x[1], NW_CORNER_COLUMN.z[0]],
+      [NW_CORNER_COLUMN.x[1], NW_CORNER_COLUMN.z[1]],
+      [NW_CORNER_COLUMN.x[0], NW_CORNER_COLUMN.z[1]],
+      [NW_CORNER_COLUMN.x[0], NW_CORNER_COLUMN.z[0]],
+    ],
+  },
   // ---- north block west wall above the precast roof: stop under the roof edge
-  ...NORTH_WEST_WALL.columns.map((c) =>
+  ...NORTH_WEST_WALL.columns.filter((c) => c !== NORTH_WEST_WALL.columns[0]).map((c) =>
     wallPier(c.name, [(c.x[0] + c.x[1]) / 2, NORTH_WEST_WALL.z], [0, -1], c.x[1] - c.x[0], PRECAST_TOWER.roof, EAST_EDGE_UNDERSIDE),
   ),
   // ---- wing NW corner (oblique west wall), grade to the brick band at 124'

@@ -764,6 +764,21 @@ const eastRoofEdgePoly = (): XZ[] => {
   ];
 };
 
+// mirror of the east edge: strip along the north block's west wall, widened
+// over the NW corner column
+const westRoofEdgePoly = (): XZ[] => {
+  const e = WEST_ROOF_EDGE;
+  const c = e.cornerCap;
+  return [
+    [e.x[0], e.z[0]],
+    [e.x[1], e.z[0]],
+    [e.x[1], c.z1],
+    [c.x0, c.z1],
+    [c.x0, e.z[1]],
+    [e.x[0], e.z[1]],
+  ];
+};
+
 // The stone band capping the north face: flat bottom, gently pitched top
 const NorthBand: React.FC = () => {
   const b = NORTH_BAND;
@@ -1030,7 +1045,7 @@ export const Massing: React.FC = () => (
     <NorthBand />
     {/* one L-shaped solid (edge + corner cap) so no seams or doubled outlines show */}
     <Prism poly={eastRoofEdgePoly()} y0={EAST_ROOF_EDGE.y[0]} y1={EAST_ROOF_EDGE.y[1]} color={C.precast} />
-    <BoxXYZ x={WEST_ROOF_EDGE.x} y={WEST_ROOF_EDGE.y} z={WEST_ROOF_EDGE.z} color={C.precast} />
+    <Prism poly={westRoofEdgePoly()} y0={WEST_ROOF_EDGE.y[0]} y1={WEST_ROOF_EDGE.y[1]} color={C.precast} />
     <PrecastTowerTop />
     <BoxXYZ
       x={FLAT_ROOF.x}

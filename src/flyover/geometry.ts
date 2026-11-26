@@ -11,6 +11,7 @@ import {
   GZ,
   H,
   NEW_PRECAST,
+  NORTH_DOOR_SHIFT,
   NORTH_ROOFLINE,
   PRECAST_TOWER,
   SPEAKEASY_WALL as SW,
@@ -170,10 +171,9 @@ const RAW_PANELS: Panel[] = [
       // up to the 170' roofline; the stone band and the sheds above are 3D
       [GZ.B, SW.pierZ[0], H.l3, NORTH_ROOFLINE],
       [SW.pierZ[0], SW.pierZ[1], SW.head, NORTH_ROOFLINE],
-      // west of the pier, up to the precast tower's 154' parapet; past the
-      // shed wall line it is the New Precast Structure (windows only)
-      [SW.pierZ[1], PRECAST_TOWER.z[1], H.l3, PRECAST_TOWER.top],
-      [PRECAST_TOWER.z[1], GZ.K, H.l3, PRECAST_TOWER.top - 0.3, "northPrecast"],
+      // the grid -45.1 column covers the wall up to the New Precast Structure;
+      // past it only the windows are drawn, over the 3D concrete
+      [NORTH_DOOR_SHIFT.z[1] - NORTH_DOOR_SHIFT.by, GZ.K, H.l3, PRECAST_TOWER.top - 0.3, "northPrecast"],
     ] as [number, number, number, number, ("northUpper" | "northPrecast")?][]
   ).map(
     ([z0, z1, bottom, top, cut = "northUpper"], i): Panel => ({
@@ -187,6 +187,17 @@ const RAW_PANELS: Panel[] = [
       l1: north.l1,
     }),
   ),
+  // the door and low window beside the NW corner column, shifted west to clear it
+  {
+    name: "north-precast-door",
+    cut: "northPrecast",
+    face: "north",
+    a: [GX.g9, NORTH_DOOR_SHIFT.z[0] - NORTH_DOOR_SHIFT.by],
+    b: [GX.g9, NORTH_DOOR_SHIFT.z[1] - NORTH_DOOR_SHIFT.by],
+    sx: [north.px(NORTH_DOOR_SHIFT.z[0]), north.px(NORTH_DOOR_SHIFT.z[1])],
+    sy: [row(north.l1, PRECAST_TOWER.top - 0.3), row(north.l1, H.l3)],
+    l1: north.l1,
+  },
   {
     name: "tower-north",
     cut: "northUpper",
