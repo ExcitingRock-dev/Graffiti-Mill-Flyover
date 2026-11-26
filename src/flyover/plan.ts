@@ -78,7 +78,8 @@ export const EAST_ROOF_EDGE = {
   x: [87.7, GX.g9 + NORTH_BAND.proud] as [number, number], // TOWER.x1 to the band's face
   y: [EAST_EDGE_UNDERSIDE, NORTH_ROOFLINE] as [number, number], // 8" thick
   z: [GZ.B - 0.3, NORTH_BAND.z[0]] as [number, number], // into the wall, out to the band's end
-  // over the 1.5 ft corner column, its faces flush with the column's (PIER.proud 0.3, defined further down)
+  // over the 1.5 ft corner column: the edge's north face runs on to z[0], the
+  // column's west face (x[1] is only the column's own face, PIER.proud 0.3)
   cornerCap: { x: [GX.g9 - 1.5, GX.g9 + 0.3] as [number, number], z: [GZ.B - 1.5, GZ.B + 0.3] as [number, number] },
 };
 
@@ -101,9 +102,36 @@ export const NORTH_SHEDS = {
   glazing: { x: [88.1, 102.1] as [number, number], y: [NORTH_ROOFLINE, 86.2] as [number, number], bays: 4 },
   roofThick: 0.25,
 };
-// the north block's west wall above the precast roof (A401): brick to 161'-6",
-// metal band to the roofline
-export const NORTH_WEST_WALL = { brickTop: 61.5, z: PRECAST_TOWER.z[1] };
+// the north block's west wall above the precast roof (A401 + 1/G160, Collin
+// 2026-11-26): brick to 161'-6", a 6" tan stone sill, then the old window
+// opening to 167'-0", filled with framing and new dark corrugated panel set 1"
+// into the opening; a concrete head up to the roof edge. Two columns (NW corner,
+// grid 7) stop under the roof edge; past grid 7 a narrow bay and the end jamb
+// at the elevator enclosure.
+export const NORTH_WEST_WALL = {
+  z: PRECAST_TOWER.z[1], // wall face; outward is -z
+  brickTop: 61.5,
+  sill: { top: 62.0, proud: 2 / 12, color: "#d3c29a" }, // typical: 2" past the wall
+  head: 67.0,
+  infillRecess: 1 / 12,
+  columns: [
+    { name: "north block west, NW corner", x: [GX.g9 - 1.4, GX.g9] as [number, number] },
+    { name: "north block west, grid 7", x: [96.66, 98.5] as [number, number] },
+  ],
+  bays: [
+    [98.5, GX.g9 - 1.4],
+    [95.45, 96.66],
+  ] as [number, number][],
+  endJamb: [PRECAST_TOWER.x[0], 95.45] as [number, number],
+};
+// same 8" roof edge as the east side, along this west wall: from the elevator
+// enclosure out flush with the band's north face, its west face flush with the
+// band's west butt end (Collin 2026-11-26)
+export const WEST_ROOF_EDGE = {
+  x: [PRECAST_TOWER.x[0], GX.g9 + NORTH_BAND.proud] as [number, number],
+  y: EAST_ROOF_EDGE.y,
+  z: [NORTH_BAND.z[1], PRECAST_TOWER.z[1] + 0.3] as [number, number], // band's end, into the wall
+};
 
 // Stair 1 tower with the round windows; gable roof, ridge along x
 export const TOWER = {
@@ -262,6 +290,10 @@ export const PIERS: Pier[] = [
   // ---- main north above the wing roof (A402 right)
   ...[-26.1, -45.1].map((z) =>
     wallPier(`main north z ${z}`, [GX.g9, z], [1, 0], 2, H.l3, NORTH_BAND.bottom),
+  ),
+  // ---- north block west wall above the precast roof: stop under the roof edge
+  ...NORTH_WEST_WALL.columns.map((c) =>
+    wallPier(c.name, [(c.x[0] + c.x[1]) / 2, NORTH_WEST_WALL.z], [0, -1], c.x[1] - c.x[0], PRECAST_TOWER.roof, EAST_EDGE_UNDERSIDE),
   ),
   // ---- wing NW corner (oblique west wall), grade to the brick band at 124'
   cornerPier("wing NW corner", [GX.g13, WING_WEST.z13], WING_W_IN, [0, 1], 1.5, GRADE, WING_BAND),

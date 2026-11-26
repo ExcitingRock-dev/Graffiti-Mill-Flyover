@@ -11,12 +11,16 @@ export const CORRUGATED = {
   tileFt: 16,
   pxPerFt: 64,
   pitchFt: 0.25, // corrugation period (3")
-  base: [230, 226, 214] as [number, number, number], // off-white
   ribShade: 0.11, // light/dark swing across one corrugation
-  rustStreaks: 34,
-  rustPatches: 10,
-  seed: 5,
 };
+type Look = { base: [number, number, number]; weather: number; rustStreaks: number; rustPatches: number; seed: number };
+// existing = the sheds' old steel, off-white and lightly rusted;
+// newDark = new darker panel infill (Collin 2026-11-26), clean, no rust
+export const CORRUGATED_LOOKS = {
+  existing: { base: [230, 226, 214], weather: 1, rustStreaks: 34, rustPatches: 10, seed: 5 },
+  newDark: { base: [88, 87, 84], weather: 0.4, rustStreaks: 0, rustPatches: 0, seed: 9 },
+} satisfies Record<string, Look>;
+export type CorrugatedLook = keyof typeof CORRUGATED_LOOKS;
 
 const rng = (seed: number) => {
   let a = seed >>> 0;
@@ -29,10 +33,11 @@ const rng = (seed: number) => {
   };
 };
 
-let corrugatedCanvas: HTMLCanvasElement | null = null;
-const getCorrugatedCanvas = () => {
-  if (corrugatedCanvas) return corrugatedCanvas;
-  const c = CORRUGATED;
+const corrugatedCanvas: Partial<Record<CorrugatedLook, HTMLCanvasElement>> = {};
+const getCorrugatedCanvas = (look: CorrugatedLook) => {
+  const cached = corrugatedCanvas[look];
+  if (cached) return cached;
+  const c = { ...CORRUGATED, ...(CORRUGATED_LOOKS[look] as Look) };
   const N = c.tileFt * c.pxPerFt;
   const cv = document.createElement("canvas");
   cv.width = cv.height = N;
@@ -61,7 +66,7 @@ const getCorrugatedCanvas = () => {
       }
   };
   // faint weathering: soft grey clouds
-  for (let i = 0; i < 40; i++) blob(rand() * N, rand() * N, 40 + rand() * 160, "120,115,105", 0.05 + rand() * 0.06);
+  for (let i = 0; i < 40; i++) blob(rand() * N, rand() * N, 40 + rand() * 160, "120,115,105", (0.05 + rand() * 0.06) * c.weather);
   // rust: streaks run down the sheet from fasteners / laps, a few patches
   for (let i = 0; i < c.rustStreaks; i++) {
     const x = Math.floor((rand() * N) / period) * period + period * (0.3 + rand() * 0.4);
@@ -78,19 +83,19 @@ const getCorrugatedCanvas = () => {
     if (y0 + len > N) g.fillRect(x - w / 2, y0 - N, w, len);
   }
   for (let i = 0; i < c.rustPatches; i++) blob(rand() * N, rand() * N, 10 + rand() * 30, "140,70,30", 0.12 + rand() * 0.15);
-  corrugatedCanvas = cv;
+  corrugatedCanvas[look] = cv;
   return cv;
 };
 
 // a texture for a surface whose UVs span uFt x vFt feet; salt shifts the tile
 // so neighbouring surfaces don't show the same rust in the same place
-export const corrugatedTexture = (uFt: number, vFt: number, salt = 0) => {
-  const t = new THREE.CanvasTexture(getCorrugatedCanvas());
+export const corrugatedTexture = (uFt: number, vFt: number, salt = 0, look: CorrugatedLook = "existing") => {
+  const t = new THREE.CanvasTexture(getCorrugatedCanvas(look));
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
   t.repeat.set(uFt / CORRUGATED.tileFt, vFt / CORRUGATED.tileFt);
-  const r = rng(CORRUGATED.seed * 7919 + salt);
+  const r = rng(CORRUGATED_LOOKS[look].seed * 7919 + salt);
   t.offset.set(r(), r());
   return t;
 };

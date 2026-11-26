@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import * as THREE from "three";
-import { CorrugatedShed } from "./Sheds";
+import { CorrugatedShed, corrugatedTexture } from "./Sheds";
 import { SpeakeasyWall } from "./SpeakeasyWall";
 import {
   EAST_ROOF_EDGE,
+  WEST_ROOF_EDGE,
   NORTH_BAND,
-  NORTH_ROOFLINE,
   NORTH_WEST_WALL,
   PRECAST_TOWER,
   speakeasyPocket,
@@ -748,14 +748,12 @@ const mainRoofSlab = (): Box3[] =>
 const eastRoofEdgePoly = (): XZ[] => {
   const e = EAST_ROOF_EDGE;
   const c = e.cornerCap;
-  // edge strip (out to the band's face), plus the cap stepping down the
-  // north face over the corner column
+  // edge strip (out to the band's face); its north end runs on at the same
+  // face across the corner column to the column's far edge (Collin 2026-11-26)
   return [
     [e.x[0], e.z[1]],
     [e.x[1], e.z[1]],
-    [e.x[1], e.z[0]],
-    [c.x[1], e.z[0]],
-    [c.x[1], c.z[0]],
+    [e.x[1], c.z[0]],
     [c.x[0], c.z[0]],
     [c.x[0], e.z[0]],
     [e.x[0], e.z[0]],
@@ -794,12 +792,51 @@ const NorthBand: React.FC = () => {
 // rising from its roof on the east side
 const PrecastTowerTop: React.FC = () => {
   const t = PRECAST_TOWER;
-  const w = NORTH_WEST_WALL;
   return (
     <group>
       <BoxXYZ x={[t.x[1] - t.parapetT, t.x[1]]} y={[t.roof, t.top]} z={t.z} color={C.precast} />
       <BoxXYZ x={t.x} y={[t.roof, t.top]} z={[t.z[0], t.z[0] + t.parapetT]} color={C.precast} />
-      <BoxXYZ x={[t.x[0], GX.g9]} y={[w.brickTop, NORTH_ROOFLINE]} z={[w.z - 0.1, w.z]} color={C.metal} lineColor={C.lineOnDark} />
+      <NorthWestWall />
+    </group>
+  );
+};
+
+// West wall of the north block above the precast roof: brick, stone sill,
+// dark corrugated infill set into the old opening, concrete head and end jamb
+// (the two columns are PIERS; the roof edge above is WEST_ROOF_EDGE)
+const NorthWestWall: React.FC = () => {
+  const w = NORTH_WEST_WALL;
+  const t = PRECAST_TOWER;
+  const top = WEST_ROOF_EDGE.y[0];
+  const back: [number, number] = [w.z, w.z + 0.2]; // wall thickness shown, to the core face
+  const x: [number, number] = [w.endJamb[1], GX.g9];
+  const infill = useMemo(
+    () =>
+      w.bays.map(([x0, x1], i) => ({
+        x0,
+        x1,
+        tex: corrugatedTexture(x1 - x0, w.head - w.sill.top, 40 + i, "newDark"),
+      })),
+    [w],
+  );
+  return (
+    <group>
+      <BoxXYZ x={x} y={[t.roof, w.brickTop]} z={back} color={C.brick} />
+      <BoxXYZ x={x} y={[w.head, top]} z={back} color={C.concrete} />
+      <BoxXYZ x={w.endJamb} y={[t.roof, top]} z={back} color={C.concrete} />
+      {w.bays.map(([x0, x1], i) => (
+        <BoxXYZ key={"sill" + i} x={[x0, x1]} y={[w.brickTop, w.sill.top]} z={[w.z - w.sill.proud, w.z + 0.2]} color={w.sill.color} />
+      ))}
+      {infill.map((b, i) => (
+        <mesh
+          key={"infill" + i}
+          position={[(b.x0 + b.x1) / 2, (w.sill.top + w.head) / 2, w.z + w.infillRecess]}
+          rotation={[0, Math.PI, 0]}
+        >
+          <planeGeometry args={[b.x1 - b.x0, w.head - w.sill.top]} />
+          <meshLambertMaterial map={b.tex} />
+        </mesh>
+      ))}
     </group>
   );
 };
@@ -855,6 +892,7 @@ export const Massing: React.FC = () => (
     <NorthBand />
     {/* one L-shaped solid (edge + corner cap) so no seams or doubled outlines show */}
     <Prism poly={eastRoofEdgePoly()} y0={EAST_ROOF_EDGE.y[0]} y1={EAST_ROOF_EDGE.y[1]} color={C.precast} />
+    <BoxXYZ x={WEST_ROOF_EDGE.x} y={WEST_ROOF_EDGE.y} z={WEST_ROOF_EDGE.z} color={C.precast} />
     <PrecastTowerTop />
     <BoxXYZ
       x={FLAT_ROOF.x}
