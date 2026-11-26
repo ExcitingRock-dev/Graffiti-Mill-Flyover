@@ -482,6 +482,67 @@ export const SPEAKEASY = {
 export const speakeasyTop = (x: number) =>
   SPEAKEASY.roofHigh -
   ((x - GX.g9) * (SPEAKEASY.roofHigh - SPEAKEASY.wallLow)) / (SPEAKEASY.outerX - GX.g9);
+// The Speakeasy's back wall: the grid-9 north face between the two main north
+// piers (z -26.1 / -45.1, 2 ft wide). Owner's intent via Collin 2026-11-26:
+// the elevation's siding is gone; a "fractured" fractured clear-glass window
+// in a storefront frame runs pier to pier; below it brick veneer (the building's
+// tan) over CMU with a door opening smashed through it, open and dark beyond.
+// The opening rises into the glass as a soft arch (not spiky), and the brick on
+// its east side wanders up to the window's top east corner.
+export const SPEAKEASY_WALL = {
+  pierZ: [-26.1, -45.1] as [number, number], // pier centers; the infill runs face to face
+  pierHalf: 1,
+  sill: 32.4, // blue line: bottom of the existing L3 windows (A402 north, 132'-5")
+  head: SPEAKEASY.roofHigh, // red line: right under where the glass roof lands (136'-0")
+  door: { zc: -31.05, w: 3.5 }, // green lines, ~2'-2" from the east pier
+  flare: 0.3, // the hole widens by this much per side toward the sill
+  ragged: { cmu: 0.35, brick: 0.25 }, // course-to-course edge wander (random walk step)
+  brickBreakBack: [0.15, 0.45] as [number, number], // brick broken back past the CMU edge
+  // brick on the opening's east side climbs to the window's top east corner
+  // (Collin's red sketch): power < 1 bows the edge outward; wander = per-course jitter
+  // reach: fraction of the way to the corner at the head (strip ~2 ft at the sill, ~1.2 ft at the head)
+  climb: { power: 0.9, wander: 0.18, reach: 0.45 },
+  // the opening's top inside the window: a soft, slightly irregular arch
+  arch: { rise: 1.7, points: 9, wobble: 0.12 },
+  // storefront frame: head, west jamb, sill (west of the opening), two mullions
+  mullionZ: [-34.3, -39.3], // where Collin drew them
+  frame: { face: 0.2, depth: 0.4 },
+  brick: { w: 0.667, h: 0.221, depth: 0.33, joint: 0.035 }, // modular 8" x 2-2/3"
+  cmu: { w: 1.333, h: 0.667, depth: 0.67, joint: 0.035 }, // 16" x 8" x 8"
+  // the building's tan brick (Massing C.brick and the facade drawings)
+  brickColors: ["#d8c49a", "#cfb98c", "#dcc9a1", "#c9b183", "#d3bd91", "#e0cfa8"],
+  cmuColor: "#9e9c96",
+  // clear glass (Collin 2026-11-26: no stained colors, keep the shards); same
+  // tint as the Speakeasy glass roof, each shard a touch lighter or darker
+  glassColors: ["#cfe0e6"],
+  glassShade: [0.88, 1.04] as [number, number],
+  lead: "#151311",
+  shardArea: 1.0, // average shard size (sq ft)
+  leadW: 0.06, // dark line between shards
+  pocketDepth: 4, // dark void behind the opening
+  seed: 11,
+};
+export const speakeasyWallZ = () => {
+  const w = SPEAKEASY_WALL;
+  return { zE: w.pierZ[0] - w.pierHalf, zW: w.pierZ[1] + w.pierHalf };
+};
+// the masonry hole's widest reach each side of the door center
+export const speakeasyHoleReach = () => {
+  const w = SPEAKEASY_WALL;
+  return w.door.w / 2 + w.flare + 0.4 + w.brickBreakBack[1] + 0.1;
+};
+// dark pocket cut into the main core behind the opening
+export const speakeasyPocket = () => {
+  const w = SPEAKEASY_WALL;
+  const { zE, zW } = speakeasyWallZ();
+  const r = speakeasyHoleReach();
+  const front = GX.g9 - 0.3; // core face (Massing core is inset 0.3 from grid 9)
+  return {
+    x: [front - w.pocketDepth, front] as [number, number],
+    y: [H.l3, Math.min(w.head, w.sill + w.arch.rise + w.arch.wobble + 0.3)] as [number, number],
+    z: [Math.max(zW, w.door.zc - r), Math.min(zE, w.door.zc + r)] as [number, number],
+  };
+};
 // light well outline: grade to roof, inside face of the east wall 1 ft in
 export const LIGHT_WELL_POLY: XZ[] = [
   [LIGHT_WELL.x[0], LIGHT_WELL.z0],

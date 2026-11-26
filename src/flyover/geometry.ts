@@ -6,7 +6,18 @@
 // An elevation is a projection, so mapping a pixel range back onto a wall
 // segment (even an oblique one, like the north wing's east wall) is exact.
 
-import { GX, GZ, H, TOWER, TOWER_OPEN, WING_EAST, WING_ROOF, WING_WEST, XZ } from "./plan";
+import {
+  GX,
+  GZ,
+  H,
+  SPEAKEASY_WALL as SW,
+  TOWER,
+  TOWER_OPEN,
+  WING_EAST,
+  WING_ROOF,
+  WING_WEST,
+  XZ,
+} from "./plan";
 
 export const PX_PER_FT = 13.5;
 
@@ -129,16 +140,26 @@ const RAW_PANELS: Panel[] = [
     l1: south.l1,
   },
   // ---- true north (A402 right)
-  {
-    name: "north-main-upper",
-    cut: "northUpper",
-    face: "north",
-    a: [GX.g9, GZ.B],
-    b: [GX.g9, GZ.K],
-    sx: [north.px(GZ.B), north.px(GZ.K)],
-    sy: [row(north.l1, H.auger), row(north.l1, H.l3)], // down to the wing roof deck
-    l1: north.l1,
-  },
+  // Split at the two piers that frame the Speakeasy: between them, below the
+  // new window head, the drawing is replaced by SpeakeasyWall (3D masonry + glass).
+  ...(
+    [
+      [GZ.B, SW.pierZ[0], H.l3],
+      [SW.pierZ[0], SW.pierZ[1], SW.head],
+      [SW.pierZ[1], GZ.K, H.l3],
+    ] as [number, number, number][]
+  ).map(
+    ([z0, z1, bottom], i): Panel => ({
+      name: `north-main-upper-${i}`,
+      cut: "northUpper",
+      face: "north",
+      a: [GX.g9, z0],
+      b: [GX.g9, z1],
+      sx: [north.px(z0), north.px(z1)],
+      sy: [row(north.l1, H.auger), row(north.l1, bottom)], // down to the wing roof deck
+      l1: north.l1,
+    }),
+  ),
   {
     name: "tower-north",
     cut: "northUpper",

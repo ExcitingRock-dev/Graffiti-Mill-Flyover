@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import * as THREE from "three";
+import { SpeakeasyWall } from "./SpeakeasyWall";
 import {
+  speakeasyPocket,
   CONCRETE_ROOF,
   DECKS,
   FLAT_ROOF,
@@ -691,15 +693,31 @@ const Rings: React.FC = () => (
   </group>
 );
 
+type Range = [number, number];
+const mainCorePieces = (): { x: Range; y: Range; z: Range }[] => {
+  const X: Range = [MAIN.x0 + 0.3, MAIN.x1 - 0.3];
+  const Y: Range = [0, MAIN.top - 0.5];
+  const Z: Range = [MAIN.z0 + 0.3, MAIN.z1 - 0.3];
+  const p = speakeasyPocket();
+  const fx: Range = [p.x[0], X[1]];
+  return [
+    { x: [X[0], p.x[0]], y: Y, z: Z },
+    { x: fx, y: [Y[0], p.y[0]], z: Z },
+    { x: fx, y: [p.y[1], Y[1]], z: Z },
+    { x: fx, y: p.y, z: [Z[0], p.z[0]] },
+    { x: fx, y: p.y, z: [p.z[1], Z[1]] },
+  ];
+};
+
 export const Massing: React.FC = () => (
   <group>
-    {/* Solid cores behind the elevation linework */}
-    <BoxXYZ
-      x={[MAIN.x0 + 0.3, MAIN.x1 - 0.3]}
-      y={[0, MAIN.top]}
-      z={[MAIN.z0 + 0.3, MAIN.z1 - 0.3]}
-      color={C.brick}
-    />
+    {/* Solid cores behind the elevation linework. The main core is built in
+        pieces around the dark pocket behind the Speakeasy's broken door
+        opening; its top stops under the roof slab so no seam shows there. */}
+    {mainCorePieces().map((b, i) => (
+      <BoxXYZ key={"core" + i} x={b.x} y={b.y} z={b.z} color={C.brick} />
+    ))}
+    <SpeakeasyWall />
     <Prism poly={WING_POLY} y0={0} y1={H_WING_CORE} color={C.brick} holes={WELL_HOLES} />
     {/* concrete wall columns (pilasters), all faces: PIERS in plan.ts */}
     {PIERS.map((p) => (

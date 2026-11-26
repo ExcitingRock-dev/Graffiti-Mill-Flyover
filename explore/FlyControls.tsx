@@ -22,6 +22,7 @@ export const VIEWS: View[] = [
   { name: "NW aerial", pos: [-79, 150, -214], look: [105, 30, -30] },
   { name: "Wing roof", pos: [200, 70, 40], look: [150, 24, -20] },
   { name: "Speakeasy", pos: [160, 38, -12], look: [128, 30, -36] },
+  { name: "Speakeasy back wall", pos: [140, 44, -35.6], look: [118.4, 29.6, -35.6] },
 ];
 
 type Readout = (text: string) => void;
