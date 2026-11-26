@@ -14,11 +14,15 @@ export const CORRUGATED = {
   ribShade: 0.11, // light/dark swing across one corrugation
 };
 type Look = { base: [number, number, number]; weather: number; rustStreaks: number; rustPatches: number; seed: number };
-// existing = the sheds' old steel, off-white and lightly rusted;
+// existing = the old steel, off-white and lightly rusted: the north sheds and
+// every head house volume and the stair tower top (Collin 2026-11-26);
 // newDark = new darker panel infill (Collin 2026-11-26), clean, no rust
 export const CORRUGATED_LOOKS = {
   existing: { base: [230, 226, 214], weather: 1, rustStreaks: 34, rustPatches: 10, seed: 5 },
   newDark: { base: [88, 87, 84], weather: 0.4, rustStreaks: 0, rustPatches: 0, seed: 9 },
+  // newWhite = the round-window stair tower: new, clean white steel, walls and
+  // roof (Collin 2026-11-26)
+  newWhite: { base: [242, 242, 238], weather: 0.15, rustStreaks: 0, rustPatches: 0, seed: 13 },
 } satisfies Record<string, Look>;
 export type CorrugatedLook = keyof typeof CORRUGATED_LOOKS;
 
@@ -123,36 +127,79 @@ const mat = (map: THREE.Texture) => (
   <meshLambertMaterial map={map} side={THREE.DoubleSide} />
 );
 
+// Axis-z volumes are built as axis-x ones in a frame turned 90 deg about y
+// (local x = -world z, local z = world x).
 export const CorrugatedShed: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({
   v,
   vent,
   eastDoor,
 }) => {
+  if (v.axis === "x" && v.roof === "shed" && v.high === "b") {
+    // high along z[1]: build it high along z[0] in a frame mirrored in z
+    const o = v.overhang;
+    const mirrored: Volume = {
+      ...v,
+      high: "a",
+      z: [-v.z[1], -v.z[0]],
+      overhang: o && { ...o, a: o.b, b: o.a },
+    };
+    return (
+      <group scale={[1, 1, -1]}>
+        <ShedX v={mirrored} />
+      </group>
+    );
+  }
+  if (v.axis === "x") return <ShedX v={v} vent={vent} eastDoor={eastDoor} />;
+  const o = v.overhang;
+  const local: Volume = {
+    ...v,
+    axis: "x",
+    x: [-v.z[1], -v.z[0]],
+    z: v.x,
+    overhang: o && { start: o.end, end: o.start ?? 0, a: o.a, b: o.b },
+    opening: v.opening && { ...v.opening, z: [-v.opening.z[1], -v.opening.z[0]] },
+  };
+  return (
+    <group rotation={[0, Math.PI / 2, 0]}>
+      <ShedX v={local} />
+    </group>
+  );
+};
+
+const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v, vent, eastDoor }) => {
   const [X0, X1] = v.x;
   const [ZA, ZB] = v.z;
   const zm = (ZA + ZB) / 2;
   const B = v.base;
   const E = v.eave;
   const R = v.ridge;
+  const mono = v.roof === "shed"; // single slope: R along ZA, E along ZB
   const o = v.overhang ?? { end: 0, a: 0, b: 0 };
+  const os = o.start ?? 0;
+  const look = v.look ?? "existing";
   const T = NORTH_SHEDS.roofThick;
   const V = NORTH_SHEDS.vent;
   const salt = [...v.name].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 0) % 1000;
 
   const parts = useMemo(() => {
+    const tex = (u: number, w: number, k: number) => corrugatedTexture(u, w, salt + k, look);
     // gable end, shape coords (-z, y): rotated +90 deg about y it lands on x
     const gable = (withVent: boolean) => {
-      const s = new THREE.Shape(
-        (
-          [
+      const outline: [number, number][] = mono
+        ? [
+            [ZA, B],
+            [ZB, B],
+            [ZB, E],
+            [ZA, R],
+          ]
+        : [
             [ZA, B],
             [ZB, B],
             [ZB, E],
             [zm, R],
             [ZA, E],
-          ] as [number, number][]
-        ).map(([z, y]) => new THREE.Vector2(-z, y)),
-      );
+          ];
+      const s = new THREE.Shape(outline.map(([z, y]) => new THREE.Vector2(-z, y)));
       if (withVent)
         s.holes.push(
           new THREE.Path(
@@ -167,36 +214,39 @@ export const CorrugatedShed: React.FC<{ v: Volume; vent?: boolean; eastDoor?: bo
           ),
         );
       // ShapeGeometry UVs are the shape coords, in feet: one tile per tileFt
-      return { geo: new THREE.ShapeGeometry(s), tex: corrugatedTexture(1, 1, salt + (withVent ? 1 : 2)) };
+      return { geo: new THREE.ShapeGeometry(s), tex: tex(1, 1, withVent ? 1 : 2) };
     };
-    // roof side from the ridge down past the eave by the overhang
-    const side = (zEave: number, over: number) => {
-      const dir = Math.sign(zEave - zm); // toward the eave
-      const slope = (R - E) / Math.abs(zm - zEave);
-      const zEdge = zEave + dir * over;
-      const yEdge = E - over * slope;
-      const w = Math.hypot(zEdge - zm, yEdge - R);
-      const ty = (yEdge - R) / w;
-      const tz = (zEdge - zm) / w;
+    // one roof plane from (z0, y0) to (z1, y1), its underside on that line
+    const plane = (z0: number, y0: number, z1: number, y1: number, k: number) => {
+      const w = Math.hypot(z1 - z0, y1 - y0);
+      const ty = (y1 - y0) / w;
+      const tz = (z1 - z0) / w;
       const theta = Math.atan2(-ty, tz);
       let n = new THREE.Vector3(0, tz, -ty);
       if (n.y < 0) n = n.multiplyScalar(-1);
-      const L = X1 + o.end - X0;
-      const mid = new THREE.Vector3((X0 + X1 + o.end) / 2, (R + yEdge) / 2, (zm + zEdge) / 2).addScaledVector(n, T / 2);
-      return { L, w, theta, mid, tex: corrugatedTexture(L, w, salt + (dir < 0 ? 3 : 4)) };
+      const L = X1 + o.end - (X0 - os);
+      const mid = new THREE.Vector3((X0 - os + X1 + o.end) / 2, (y0 + y1) / 2, (z0 + z1) / 2).addScaledVector(n, T / 2);
+      return { L, w, theta, mid, tex: tex(L, w, k) };
     };
+    // gable side: from the ridge down past the eave by the overhang
+    const side = (zEave: number, over: number, k: number) => {
+      const dir = Math.sign(zEave - zm);
+      const slope = (R - E) / Math.abs(zm - zEave);
+      return plane(zm, R, zEave + dir * over, E - over * slope, k);
+    };
+    const monoSlope = (R - E) / (ZB - ZA);
     return {
       north: gable(!!vent),
       south: gable(false),
-      wallTexA: corrugatedTexture(X1 - X0, E - B, salt + 5),
-      wallTexB: corrugatedTexture(X1 - X0, E - B, salt + 6),
-      roofA: side(ZA, o.a),
-      roofB: side(ZB, o.b),
+      wallTexA: tex(X1 - X0, (mono ? R : E) - B, 5),
+      wallTexB: tex(X1 - X0, E - B, 6),
+      roofs: mono
+        ? [plane(ZA - o.a, R + o.a * monoSlope, ZB + o.b, E - o.b * monoSlope, 3)]
+        : [side(ZA, o.a, 3), side(ZB, o.b, 4)],
     };
-  }, [X0, X1, ZA, ZB, zm, B, E, R, o.end, o.a, o.b, T, V, vent, salt]);
+  }, [X0, X1, ZA, ZB, zm, B, E, R, mono, o.end, os, o.a, o.b, T, V, vent, salt, look]);
 
   const D = NORTH_SHEDS.door;
-  const G = NORTH_SHEDS.glazing;
   const louver = useMemo(() => {
     const t = stripes(16, [0, 4, 8, 12].map((y) => ({ y, h: 2, c: "#3a3a38" })), "#8c8a84");
     t.repeat.set(1, (V.y[1] - V.y[0]) / 0.33); // a blade every 4"
@@ -206,6 +256,31 @@ export const CorrugatedShed: React.FC<{ v: Volume; vent?: boolean; eastDoor?: bo
     () => stripes(64, [0, 16, 32, 48].map((y) => ({ y, h: 1, c: "#8f8d86" })), D.color),
     [D.color],
   );
+
+  // open bay in wall A (local x range in .z after the frame turn)
+  const op = v.opening;
+  const bay = useMemo(() => {
+    if (!op) return null;
+    const [h0, h1] = op.z;
+    const top = op.top;
+    const hA = (mono ? R : E) - B;
+    const wall = new THREE.Shape(
+      ([[X0, B], [X1, B], [X1, B + hA], [X0, B + hA]] as [number, number][]).map(([x, y]) => new THREE.Vector2(x, y)),
+    );
+    wall.holes.push(
+      new THREE.Path(([[h0, B], [h0, top], [h1, top], [h1, B]] as [number, number][]).map(([x, y]) => new THREE.Vector2(x, y))),
+    );
+    const t = (k: number) => corrugatedTexture(1, 1, salt + k, look);
+    return {
+      wall: new THREE.ShapeGeometry(wall), // UVs in feet
+      wallTex: t(5),
+      w: h1 - h0,
+      h: top - B,
+      xm: (h0 + h1) / 2,
+      backTex: corrugatedTexture(h1 - h0, top - B, salt + 7, look),
+      jambTex: corrugatedTexture(op.depth, top - B, salt + 8, look),
+    };
+  }, [op, X0, X1, B, E, R, mono, salt, look]);
 
   const vw = V.z[1] - V.z[0];
   const vh = V.y[1] - V.y[0];
@@ -223,27 +298,53 @@ export const CorrugatedShed: React.FC<{ v: Volume; vent?: boolean; eastDoor?: bo
         {mat(parts.south.tex)}
       </mesh>
       {/* side walls */}
+      {bay && op ? (
+        <group>
+          <mesh geometry={bay.wall} position={[0, 0, ZA]}>
+            {mat(bay.wallTex)}
+          </mesh>
+          {/* the bay: back wall, two side walls, soffit */}
+          <mesh position={[bay.xm, B + bay.h / 2, ZA + op.depth]}>
+            <planeGeometry args={[bay.w, bay.h]} />
+            <meshLambertMaterial map={bay.backTex} color="#9a968e" side={THREE.DoubleSide} />
+          </mesh>
+          {op.z.map((x) => (
+            <mesh key={x} position={[x, B + bay.h / 2, ZA + op.depth / 2]} rotation={[0, Math.PI / 2, 0]}>
+              <planeGeometry args={[op.depth, bay.h]} />
+              <meshLambertMaterial map={bay.jambTex} color="#b4b0a8" side={THREE.DoubleSide} />
+            </mesh>
+          ))}
+          <mesh position={[bay.xm, op.top, ZA + op.depth / 2]} rotation={[Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[bay.w, op.depth]} />
+            <meshLambertMaterial color="#6f6b64" side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      ) : null}
       {[
-        { z: ZA, t: parts.wallTexA },
-        { z: ZB, t: parts.wallTexB },
-      ].map(({ z, t }) => (
-        <mesh key={z} position={[(X0 + X1) / 2, (B + E) / 2, z]}>
-          <planeGeometry args={[X1 - X0, wallH]} />
-          {mat(t)}
-        </mesh>
-      ))}
-      {/* roof, 12" eaves where v.overhang says */}
-      {[parts.roofA, parts.roofB].map((r, i) => (
+        ...(op ? [] : [{ z: ZA, t: parts.wallTexA, h: (mono ? R : E) - B }]),
+        { z: ZB, t: parts.wallTexB, h: wallH },
+      ].map(({ z, t, h }) =>
+        h > 0 ? (
+          <mesh key={z} position={[(X0 + X1) / 2, B + h / 2, z]}>
+            <planeGeometry args={[X1 - X0, h]} />
+            {mat(t)}
+          </mesh>
+        ) : null,
+      )}
+      {/* roof, 8" eaves where v.overhang says */}
+      {parts.roofs.map((r, i) => (
         <mesh key={i} position={r.mid} rotation={[r.theta, 0, 0]}>
           <boxGeometry args={[r.L, T, r.w]} />
           {mat(r.tex)}
         </mesh>
       ))}
       {/* ridge cap */}
-      <mesh position={[(X0 + X1 + o.end) / 2, R + T, zm]}>
-        <boxGeometry args={[X1 + o.end - X0, 0.15, 0.6]} />
-        <meshLambertMaterial color="#b9b4a8" />
-      </mesh>
+      {mono ? null : (
+        <mesh position={[(X0 - os + X1 + o.end) / 2, R + T, zm]}>
+          <boxGeometry args={[X1 + o.end - X0 + os, 0.15, 0.6]} />
+          <meshLambertMaterial color={look === "existing" ? "#b9b4a8" : "#4a4946"} />
+        </mesh>
+      )}
       {vent ? (
         <group>
           {/* louver set back 2", with its reveal */}
@@ -270,21 +371,6 @@ export const CorrugatedShed: React.FC<{ v: Volume; vent?: boolean; eastDoor?: bo
           <mesh position={[(D.x[0] + D.x[1]) / 2, (D.y[0] + D.y[1]) / 2, ZB + 0.04]}>
             <planeGeometry args={[D.x[1] - D.x[0], D.y[1] - D.y[0]]} />
             <meshLambertMaterial map={doorTex} />
-          </mesh>
-          {/* new glazed enclosure in the existing steel frame */}
-          <mesh position={[(G.x[0] + G.x[1]) / 2, (G.y[0] + G.y[1]) / 2, ZB + 0.03]}>
-            <planeGeometry args={[G.x[1] - G.x[0], G.y[1] - G.y[0]]} />
-            <meshBasicMaterial color="#f2c48a" />
-          </mesh>
-          {Array.from({ length: G.bays + 1 }, (_, k) => G.x[0] + ((G.x[1] - G.x[0]) * k) / G.bays).map((x) => (
-            <mesh key={x} position={[x, (G.y[0] + G.y[1]) / 2, ZB + 0.08]}>
-              <boxGeometry args={[0.3, G.y[1] - G.y[0], 0.1]} />
-              <meshLambertMaterial color="#1c1b1a" />
-            </mesh>
-          ))}
-          <mesh position={[(G.x[0] + G.x[1]) / 2, G.y[1], ZB + 0.08]}>
-            <boxGeometry args={[G.x[1] - G.x[0] + 0.3, 0.3, 0.1]} />
-            <meshLambertMaterial color="#1c1b1a" />
           </mesh>
         </group>
       ) : null}

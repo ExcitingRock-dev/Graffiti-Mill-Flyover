@@ -14,6 +14,7 @@ import {
   NORTH_DOOR_SHIFT,
   NORTH_ROOFLINE,
   PRECAST_TOWER,
+  SOUTH_DECK,
   SPEAKEASY_WALL as SW,
   TOWER,
   TOWER_OPEN,
@@ -55,6 +56,11 @@ export const CUTS = {
   // only the windows show, over the 3D concrete of the New Precast Structure
   westPrecast: { file: "facades-color/west-precast.png", x: 940, y: 1300, w: 2560, h: 1537 },
   northPrecast: { file: "facades-color/north-upper-precast.png", x: 2560, y: 1300, w: 1000, h: 1170 },
+  // the same sheets with the dark siding made transparent (tools/mask-siding.mjs):
+  // only the stair tower's windows show, over its 3D white siding
+  eastTower: { file: "facades-color/east-tower.png", x: 1100, y: 1300, w: 2620, h: 1540 },
+  southTower: { file: "facades-color/south-tower.png", x: 800, y: 1300, w: 990, h: 1510 },
+  northTower: { file: "facades-color/north-upper-tower.png", x: 2560, y: 1300, w: 1000, h: 1170 },
   northWing: {
     file: "facades-color/north-wing.png",
     x: 2560,
@@ -77,12 +83,15 @@ export type Panel = {
   // sheet rows (top, bottom) and that sheet's Level 1 row
   sy: [number, number];
   l1: number;
+  // world heights (top, bottom) when the drawing is placed at other heights
+  // than the ones it was drawn at
+  y?: [number, number];
 };
 
 const GRADE = -1.2; // bottom of facades, matches ground plane
-const eastPanel = (name: string, a: XZ, b: XZ, yTop: number): Panel => ({
+const eastPanel = (name: string, a: XZ, b: XZ, yTop: number, cut: "east" | "eastTower" = "east"): Panel => ({
   name,
-  cut: "east",
+  cut,
   face: "east",
   a,
   b,
@@ -95,13 +104,37 @@ const RAW_PANELS: Panel[] = [
   // ---- true east (A403)
   // over grid 7-9 the drawing stops at the 170' roofline: the corrugated
   // sheds above it are 3D (Sheds.tsx)
-  eastPanel("east-main", [GX.g2, GZ.B], [88.0, GZ.B], H.auger),
+  // over the Level 6 South Deck the face stops at the top of its brick curb
+  eastPanel("east-main-deck", [GX.g2, GZ.B], [SOUTH_DECK.x[1], GZ.B], SOUTH_DECK.curbTop),
+  eastPanel("east-main", [SOUTH_DECK.x[1], GZ.B], [88.0, GZ.B], H.auger),
+  // the deck's west side steps up to the 177' roof: that step wall is what the
+  // elevation shows above the guardrail. Its upper part sits where drawn; the
+  // part hidden behind the guardrail reuses the brick just above it.
+  ...(
+    [
+      [SOUTH_DECK.railTop, H.auger, H.auger],
+      [SOUTH_DECK.y, SOUTH_DECK.railTop, SOUTH_DECK.railTop + (SOUTH_DECK.railTop - SOUTH_DECK.y)],
+    ] as [number, number, number][]
+  ).map(
+    ([y0, y1, rowTop], i): Panel => ({
+      name: `deck-step-wall-${i}`,
+      cut: "east",
+      face: "east",
+      a: [GX.g2, SOUTH_DECK.z[0]],
+      b: [SOUTH_DECK.x[1], SOUTH_DECK.z[0]],
+      sx: [east.px(GX.g2), east.px(SOUTH_DECK.x[1])],
+      sy: [row(east.l1, rowTop), row(east.l1, rowTop - (y1 - y0))],
+      l1: east.l1,
+      y: [y1, y0],
+    }),
+  ),
   eastPanel("east-main-sheds", [88.0, GZ.B], [GX.g9, GZ.B], NORTH_ROOFLINE),
   eastPanel(
     "tower-east",
     [TOWER.x0, TOWER.z1],
     [TOWER.x1, TOWER.z1],
     TOWER.eave,
+    "eastTower",
   ),
   // wing: drawings cut at the parapet cap; the 3D mesh guard sits above it
   eastPanel("wing-east-a", [GX.g9, GZ.B], [GX.g10, GZ.B], WING_ROOF.cap),
@@ -143,19 +176,28 @@ const RAW_PANELS: Panel[] = [
     l1: west.l1,
   },
   // ---- true south (A402 left)
-  {
-    name: "south-main",
-    cut: "south",
-    face: "south",
-    a: [GX.g2, GZ.K],
-    b: [GX.g2, GZ.B],
-    sx: [south.px(GZ.K), south.px(GZ.B)],
-    sy: [row(south.l1, H.auger), row(south.l1, GRADE)],
-    l1: south.l1,
-  },
+  // west of the Level 6 South Deck up to the 177' roof, along the deck to
+  // the top of its brick curb
+  ...(
+    [
+      [GZ.K, SOUTH_DECK.z[0], H.auger],
+      [SOUTH_DECK.z[0], GZ.B, SOUTH_DECK.curbTop],
+    ] as [number, number, number][]
+  ).map(
+    ([z0, z1, top], i): Panel => ({
+      name: `south-main-${i}`,
+      cut: "south",
+      face: "south",
+      a: [GX.g2, z0],
+      b: [GX.g2, z1],
+      sx: [south.px(z0), south.px(z1)],
+      sy: [row(south.l1, top), row(south.l1, GRADE)],
+      l1: south.l1,
+    }),
+  ),
   {
     name: "tower-south",
-    cut: "south",
+    cut: "southTower",
     face: "south",
     a: [TOWER.x0, TOWER.z0],
     b: [TOWER.x0, TOWER.z1],
@@ -200,7 +242,7 @@ const RAW_PANELS: Panel[] = [
   },
   {
     name: "tower-north",
-    cut: "northUpper",
+    cut: "northTower",
     face: "north",
     a: [TOWER.x1, TOWER.z1],
     b: [TOWER.x1, TOWER.z0],

@@ -1,3 +1,5 @@
+import type { CorrugatedLook } from "./Sheds";
+
 // 3D geometry of the East Building, from the GM Window Order Plan Set (10/9/2026):
 // G160 axons, A100-A106 plans, A140 roof plan, 401-403 elevations.
 // World units are FEET. y = 0 is Level 1 (100'-0"). x runs grid 1 -> 13
@@ -38,7 +40,7 @@ export const H = {
   l2: 12, // 112'
   l3: 24, // 124'
   l4: 38, // 138'
-  flatRoof: 74.5, // Level 6.1 (174'-6"), south flat roof
+  e6: 70.0, // Level E6 (170'-0"): the Level 6 South Deck (A402, 3/G160)
   auger: 77, // 177'-0"
   wingParapet: 27.5,
 };
@@ -108,8 +110,8 @@ export const NORTH_SHEDS = {
   // east shed, east wall: new sectional overhead door replacing the blown-out one
   // (horizontal-panel box on A403, 10'-0" x 10'-8" on the roofline)
   door: { x: [105.8, 115.8] as [number, number], y: [70.3, 81.0] as [number, number], color: "#cfcdc6" },
-  // A403: "NEW GLAZED ENCLOSURE @ EXISTING STEEL FRAME", east wall, south end
-  glazing: { x: [88.1, 102.1] as [number, number], y: [NORTH_ROOFLINE, 86.2] as [number, number], bays: 4 },
+  // no glazed enclosure at the east wall's south end, despite the A403 note: that
+  // wall stays weathered corrugated steel (Collin 2026-11-26)
   roofThick: 0.25,
 };
 // the north block's west wall above the precast roof (A401 + 1/G160, Collin
@@ -152,6 +154,8 @@ export const TOWER = {
   x1: 87.7,
   z0: -6.0,
   z1: 8.8,
+  // single-slope roof (4/G160, A402): high on the west side (z0) at the
+  // ridge, falling to the eave on the east face
   eave: 94.5,
   ridge: 99.2,
 };
@@ -272,6 +276,7 @@ const WING_W_OUT: XZ = [-WING_W_IN[1], WING_W_IN[0]]; // outward, toward -z
 // Tops. Main block: 177'-0" (Auger) where the column runs through the top band;
 // on the east face the columns stop under the top brick band at ~171'-5".
 const MAIN_TOP = H.auger;
+const DECK_CURB_TOP = 72.0; // see SOUTH_DECK
 const EAST_TOP = 71.4;
 // Wing: every face's columns stop at the roof (124'), brick infill above them
 // to the cap, mesh guard above that (Collin 2026-11-25: east matches north).
@@ -291,7 +296,8 @@ export const NW_CORNER_COLUMN = {
 export const NORTH_DOOR_SHIFT = { z: [PRECAST_TOWER.z[1], -56.0] as [number, number], by: 0.4 };
 export const PIERS: Pier[] = [
   // ---- main block corners
-  cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, MAIN_TOP),
+  // stops at the top of the Level 6 South Deck's brick curb (A402)
+  cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, DECK_CURB_TOP),
   cornerPier("main SW corner", [GX.g2, GZ.K], [1, 0], [0, 1], 2, GRADE, MAIN_TOP),
   // stops under the stone band (A402)
   cornerPier("main NE corner, above wing roof", [GX.g9, GZ.B], [-1, 0], [0, -1], 1.5, H.l3, EAST_EDGE_UNDERSIDE),
@@ -306,7 +312,7 @@ export const PIERS: Pier[] = [
   ),
   // ---- main south (A402 left): near grids G and D/E
   ...[-43.1, -25.4].map((z) =>
-    wallPier(`main south z ${z}`, [GX.g2, z], [-1, 0], 2, GRADE, MAIN_TOP),
+    wallPier(`main south z ${z}`, [GX.g2, z], [-1, 0], 2, GRADE, z > -42.4 ? DECK_CURB_TOP : MAIN_TOP),
   ),
   // ---- main north above the wing roof (A402 right)
   wallPier("main north z -26.1", [GX.g9, -26.1], [1, 0], 2, H.l3, NORTH_BAND.bottom),
@@ -358,14 +364,30 @@ export type Volume = {
   ridge: number; // = eave for flat tops
   axis: "x" | "z"; // ridge direction
   mat: "metal" | "precast";
-  // existing corrugated steel skin (Sheds.tsx) instead of a flat solid; axis x only
+  // corrugated steel skin (Sheds.tsx) instead of a flat solid
   skin?: "corrugated";
-  // roof overhang past the walls (ft): north gable end, z[0] side, z[1] side
-  overhang?: { end: number; a: number; b: number };
+  look?: CorrugatedLook; // skin color, default the old off-white steel
+  // gable (default) or single slope: high along the a side (z[0] for axis x,
+  // x[0] for axis z) at `ridge`, low along the b side at `eave`
+  roof?: "gable" | "shed";
+  // single slope only: which side is high (default a); axis x only for "b"
+  high?: "a" | "b";
+  // roof overhang past the walls (ft). a / b: the two eave sides (a = z[0] for
+  // axis x, x[0] for axis z). end / start: the gable ends at the high / low end
+  // of the ridge axis for axis x (x[1] / x[0]); for axis z, z[0] / z[1]
+  overhang?: { start?: number; end: number; a: number; b: number };
+  // an open bay in the a-side wall (axis z only): world z range, from the base
+  // up to `top`, recessed `depth` into the volume
+  opening?: { z: [number, number]; top: number; depth: number };
 };
+// 8" eaves on every roof (4/G160; Collin 2026-11-26)
+export const EAVE = 8 / 12;
+const EAVES = { start: EAVE, end: EAVE, a: EAVE, b: EAVE };
 export const HEAD_HOUSE: Volume[] = [
   {
     name: "HA grid 2-3 K-H",
+    skin: "corrugated",
+    overhang: EAVES,
     x: [16.07, 36.2],
     z: [-57.8, -42.4],
     base: 77,
@@ -375,32 +397,51 @@ export const HEAD_HOUSE: Volume[] = [
     mat: "metal",
   },
   {
+    // single slope, high at the west face, falling east (A402 south: 192'-4"
+    // at z -62 down to ~185'-1" at z -44.9; A401 shows its high edge; Collin
+    // 2026-11-26)
     name: "HB grid 3-4 K-H",
+    skin: "corrugated",
+    roof: "shed",
+    overhang: EAVES,
     x: [36.2, 46.1],
     z: [-62, -44.9],
     base: 77,
-    eave: 89,
+    eave: 85.1,
     ridge: 92.3,
     axis: "x",
     mat: "metal",
   },
   {
+    // gable, ridge along x, gable end to the north (4/G160); eave and ridge
+    // from the south elevation (A402)
     name: "HC tall shaft",
+    skin: "corrugated",
+    overhang: EAVES,
     x: [46.1, 57.7],
     z: [-62, -44.9],
     base: 77,
-    eave: 107,
-    ridge: 107,
+    eave: 103.4,
+    ridge: 107.2,
     axis: "x",
     mat: "metal",
   },
   {
+    // lower than it was, single slope: low eave on the west face, set 36"
+    // behind grid K, rising east to die into the central gable's west end
+    // (Collin 2026-11-26; eave 186'-5" on A401, about 193'-4" at the high
+    // side on A402, the same pitch as HB). No eave where it meets HC (south)
+    // or the central gable (east).
     name: "HD grid 4-5 K-G",
+    skin: "corrugated",
+    roof: "shed",
+    high: "b",
+    overhang: { start: 0, end: EAVE, a: EAVE, b: 0 },
     x: [57.7, 75.6],
-    z: [-60.9, -42.4],
+    z: [GZ.K + 3, -42.4],
     base: 77,
-    eave: 92,
-    ridge: 94,
+    eave: 86.4,
+    ridge: 93.3,
     axis: "x",
     mat: "metal",
   },
@@ -408,8 +449,12 @@ export const HEAD_HOUSE: Volume[] = [
   // is a raised gable on the central roof (Collin 2026-11-26). A140 shows its
   // footprint inside HG's north slope; heights from A401.
   {
+    // walls x 75 to 88 (A140: the ridge at 81.8); the strip south of it on A140
+    // is HG_ROOF_EXTENSION
     name: "HG2 raised gable on the central roof",
-    x: [76, 88],
+    skin: "corrugated",
+    overhang: EAVES,
+    x: [75, 88],
     z: [-31.8, -19.7],
     base: 93.5,
     eave: 103.4,
@@ -418,10 +463,17 @@ export const HEAD_HOUSE: Volume[] = [
     mat: "metal",
   },
   {
+    // its south wall stands on the Level 6 South Deck (E6), with an open bay
+    // at its west end where a stair climbs from the deck (3/G160; A402 south:
+    // z -41.8 to -19.0, head 185'-4"). Bay depth not drawn: 8' assumed.
     name: "HG central gable",
+    skin: "corrugated",
+    opening: { z: [-41.8, -19.0], top: 85.3, depth: 8 },
+    // no eave where it meets the stair tower (east end) or the north sheds
+    overhang: { start: 0, end: EAVE, a: EAVE, b: 0 },
     x: [55.3, 87.9],
     z: [-42.4, -6.8],
-    base: 77,
+    base: H.e6,
     eave: 93.5,
     ridge: 99.7,
     axis: "z",
@@ -439,8 +491,8 @@ export const HEAD_HOUSE: Volume[] = [
     axis: "x",
     mat: "metal",
     skin: "corrugated",
-    // 12" eaves (Collin 2026-11-26); none on the west side, it dies into the taller shed
-    overhang: { end: 1, a: 0, b: 1 },
+    // none on the west side, it dies into the taller shed
+    overhang: { end: EAVE, a: 0, b: EAVE },
   },
   {
     name: "HH west shed",
@@ -452,9 +504,20 @@ export const HEAD_HOUSE: Volume[] = [
     axis: "x",
     mat: "metal",
     skin: "corrugated",
-    overhang: { end: 1, a: 1, b: 1 },
+    overhang: { end: EAVE, a: EAVE, b: EAVE },
   },
 ];
+// The central gable's south slope runs on past its ridge, at the same pitch,
+// up into the raised gable's south wall (3/G160; Collin 2026-11-26): a small
+// lean-to over HG2's length, closed at both ends down to HG's north slope.
+const HG_VOL = HEAD_HOUSE.find((v) => v.name === "HG central gable")!;
+const HG2_VOL = HEAD_HOUSE.find((v) => v.name.startsWith("HG2"))!;
+export const HG_ROOF_EXTENSION = {
+  x: [(HG_VOL.x[0] + HG_VOL.x[1]) / 2, HG2_VOL.x[0]] as [number, number], // HG ridge -> HG2 south wall
+  z: HG2_VOL.z,
+  ridge: HG_VOL.ridge,
+  slope: (HG_VOL.ridge - HG_VOL.eave) / ((HG_VOL.x[1] - HG_VOL.x[0]) / 2), // rise per ft
+};
 // Elevator enclosure: part of the new precast structure (A401 "NEW ELEVATOR
 // ENCLOSURE, PRE-CAST CONCRETE"), concrete like the building below. Single-slope
 // corrugated roof (A140 ribs run west-east, no ridge): low at the west face at
@@ -474,11 +537,18 @@ export const CONCRETE_ROOF = {
   z: PRECAST_TOWER.z,
   y: PRECAST_TOWER.roof,
 };
-// South flat roof with heavy black parapet (SE axon)
-export const FLAT_ROOF = {
+// Level 6 South Deck (3/G160, A402 south, A403 east; Collin 2026-11-26): an
+// open roof deck at E6, not the Auger roof. Along its south and east edges a
+// stone band at the deck line, a brick curb to 172'-0" and a guardrail to
+// 173'-6"; to the west it steps up to the 177' roof under HA / HB, to the
+// north the central gable's south wall rises from it.
+export const SOUTH_DECK = {
   x: [GX.g2, 55.3] as [number, number],
   z: [-42.4, GZ.B] as [number, number],
-  y: H.flatRoof,
+  y: H.e6,
+  curbTop: DECK_CURB_TOP,
+  curbThick: 0.67,
+  railTop: 73.5,
 };
 
 // ---- Decks (lavender on A140) --------------------------------------------
@@ -725,6 +795,22 @@ export const STAIRS: Flight[] = [
   { from: [175.7, TURN_Y, -61.4], to: [184.2, L2, -61.4], width: 4.2 },
   // north face flight: L2 landing up to the wing roof (A102 L3 "DN")
   { from: [204.8, L2, -57.9], to: [204.8, H.l3, -30.2], width: 4.2 },
+];
+// The Level 6 South Deck's two stairs (3/G160 SE axon, A402 south; Collin
+// 2026-11-26):
+// - in the central gable's open bay, a steep steel stair climbs west from the
+//   deck to about 180' at the bay's west side (A402: foot z -35.3, top z -41.6
+//   at 179'-11")
+// - in front of the gable's solid wall, a stair drops east through a hatch in
+//   the deck (A402: top at z -23); only its upper flight shows
+export const DECK_HATCH = {
+  x: [51.4, 55.2] as [number, number],
+  z: [-23.0, -10.0] as [number, number],
+  bottom: 56, // the shaft below the deck
+};
+export const DECK_STAIRS: Flight[] = [
+  { from: [57.9, H.e6, -35.3], to: [57.9, 79.9, -41.6], width: 3.5 },
+  { from: [53.3, H.e6, DECK_HATCH.z[0]], to: [53.3, H.e6 - 12, DECK_HATCH.z[0] + 12.5], width: 3.4 },
 ];
 // railTop: guard top elevation when it must meet another guard (default y + STAIR.guard)
 export type Landing = { name: string; y: number; poly: XZ[]; rail: XZ[]; railTop?: number };

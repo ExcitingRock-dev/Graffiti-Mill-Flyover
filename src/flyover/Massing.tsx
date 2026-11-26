@@ -15,13 +15,15 @@ import {
   speakeasyPocket,
   CONCRETE_ROOF,
   DECKS,
-  FLAT_ROOF,
   FRAME,
   ENTRY_VESTIBULE,
   Flight,
   FrameEdge,
   TOWER_OPEN,
   HEAD_HOUSE,
+  EAVE,
+  HG_ROOF_EXTENSION,
+  SOUTH_DECK,
   MAIN,
   RINGS,
   LIGHT_WELL,
@@ -32,6 +34,8 @@ import {
   STAIR,
   STAIR_LANDINGS,
   STAIRS,
+  DECK_HATCH,
+  DECK_STAIRS,
   TOWER,
   SPEAKEASY,
   PIER,
@@ -730,8 +734,15 @@ const aboveTower: Box3 = {
   y: [PRECAST_TOWER.roof - 0.35, MAIN.top + 1], // core stops under the 0.3 roof slab, not at its top
   z: [MAIN.z0 - 1, PRECAST_TOWER.z[1] + 0.2], // core face sits 0.2 behind the shed / band walls
 };
+// the Level 6 South Deck: no core or Auger roof slab above it
+const aboveDeck: Box3 = {
+  x: [MAIN.x0 - 1, SOUTH_DECK.x[1]],
+  y: [SOUTH_DECK.y - 1.2, MAIN.top + 1],
+  z: [SOUTH_DECK.z[0], MAIN.z1 + 1],
+};
+const deckHatchShaft: Box3 = { x: DECK_HATCH.x, y: [DECK_HATCH.bottom, SOUTH_DECK.y], z: DECK_HATCH.z };
 // the corrugated sheds are hollow skins: no core or roof slab inside them
-const insideSheds: Box3[] = HEAD_HOUSE.filter((v) => v.skin === "corrugated").map((v) => ({
+const insideSheds: Box3[] = HEAD_HOUSE.filter((v) => v.skin === "corrugated" && v.base < MAIN.top).map((v) => ({
   x: [v.x[0], v.x[1] + 1],
   y: [v.base, MAIN.top + 1],
   z: [v.z[0], v.z[1] + 1],
@@ -740,12 +751,13 @@ const mainCorePieces = (): Box3[] => {
   const p = speakeasyPocket();
   return subtractAll(
     [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - 0.5], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
-    [p, aboveTower, ...insideSheds],
+    [p, aboveTower, aboveDeck, deckHatchShaft, ...insideSheds],
   );
 };
 const mainRoofSlab = (): Box3[] =>
   subtractAll([{ x: [MAIN.x0, MAIN.x1], y: [MAIN.top - 0.5, MAIN.top], z: [MAIN.z0, MAIN.z1] }], [
     aboveTower,
+    aboveDeck,
     ...insideSheds,
   ]);
 
@@ -777,6 +789,137 @@ const westRoofEdgePoly = (): XZ[] => {
     [c.x0, e.z[1]],
     [e.x[0], e.z[1]],
   ];
+};
+
+// The round-window stair tower's body: new, clean white corrugated steel on
+// every face (Collin 2026-11-26); its drawings lay only the windows over it
+const TowerSkin: React.FC = () => {
+  const tex = useMemo(() => corrugatedTexture(1, 1, 17, "newWhite"), []);
+  const geos = useMemo(
+    () =>
+      (
+        [
+          [-1.2, TOWER_OPEN.y0 - TOWER_OPEN.slab],
+          [TOWER_OPEN.y1, TOWER.eave],
+        ] as Range[]
+      ).map((y) => worldUV(boxAt([TOWER.x0, TOWER.x1], y, [TOWER.z0, TOWER.z1]))),
+    [],
+  );
+  return (
+    <group>
+      {geos.map((g, i) => (
+        <mesh key={i} geometry={g}>
+          <meshLambertMaterial map={tex} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+// The central gable's south slope carried past its ridge into the raised
+// gable's south wall: a wedge sitting on HG's north slope. Ribs run down the
+// slope (along x), like the roof it continues.
+const HgRoofExtension: React.FC = () => {
+  const e = HG_ROOF_EXTENSION;
+  const T = 0.25; // roof thickness, as on the sheds (NORTH_SHEDS.roofThick)
+  const tex = useMemo(() => corrugatedTexture(1, 1, 91), []);
+  const geo = useMemo(() => {
+    const [x0, x1] = e.x;
+    const run = x1 - x0;
+    // cross-section in (x, y), on top of HG's roof planes (their top = line + T)
+    const s = new THREE.Shape(
+      (
+        [
+          [x0, e.ridge + T],
+          [x1, e.ridge - run * e.slope + T],
+          [x1, e.ridge + run * e.slope + T],
+        ] as [number, number][]
+      ).map(([x, y]) => new THREE.Vector2(x, y)),
+    );
+    const g = new THREE.ExtrudeGeometry(s, { depth: e.z[1] - e.z[0], bevelEnabled: false })
+      .translate(0, 0, e.z[0])
+      .toNonIndexed();
+    g.computeVertexNormals();
+    const p = g.getAttribute("position");
+    const n = g.getAttribute("normal");
+    const uv = new Float32Array(p.count * 2);
+    for (let i = 0; i < p.count; i++) {
+      const top = Math.abs(n.getY(i)) > 0.5;
+      const endFace = Math.abs(n.getZ(i)) > 0.5;
+      // roof: ribs along x; end walls: vertical ribs
+      const [u, v] = top ? [p.getZ(i), p.getX(i)] : endFace ? [p.getX(i), p.getY(i)] : [p.getZ(i), p.getY(i)];
+      uv[2 * i] = u;
+      uv[2 * i + 1] = v;
+    }
+    g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    return g;
+  }, [e]);
+  return (
+    <mesh geometry={geo}>
+      <meshLambertMaterial map={tex} />
+    </mesh>
+  );
+};
+
+// The Level 6 South Deck: slab at E6, the brick curb along its south and east
+// edges (the drawings show its face), and a guardrail just inside it
+const SouthDeck: React.FC = () => {
+  const d = SOUTH_DECK;
+  const [x0, x1] = d.x;
+  const [z0, z1] = d.z;
+  const c = d.curbThick;
+  const hx = DECK_HATCH.x;
+  const hz = DECK_HATCH.z;
+  const bay = HEAD_HOUSE.find((v) => v.name === "HG central gable")!.opening!;
+  return (
+    <group>
+      <Prism
+        poly={[
+          [x0, z0],
+          [x1, z0],
+          [x1, z1],
+          [x0, z1],
+        ]}
+        holes={[
+          [
+            [hx[0], hz[0]],
+            [hx[1], hz[0]],
+            [hx[1], hz[1]],
+            [hx[0], hz[1]],
+          ],
+        ]}
+        y0={d.y - 1.2}
+        y1={d.y}
+        color={C.deck}
+      />
+      {/* the deck runs on into the central gable's open bay */}
+      <BoxXYZ x={[x1, x1 + bay.depth]} y={[d.y - 0.3, d.y + 0.02]} z={bay.z} color={C.deck} />
+      {/* guard around the stair hatch on its open sides */}
+      <Railing
+        path={[
+          [hx[0], hz[1]],
+          [hx[0], hz[0]],
+          [hx[1], hz[0]],
+        ]}
+        y={d.y}
+        h={d.railTop - d.y}
+      />
+      {DECK_STAIRS.map((f, i) => (
+        <StairFlight key={i} f={f} />
+      ))}
+      <BoxXYZ x={[x0, x1]} y={[d.y, d.curbTop]} z={[z1 - c, z1]} color={C.precast} />
+      <BoxXYZ x={[x0, x0 + c]} y={[d.y, d.curbTop]} z={[z0, z1 - c]} color={C.precast} />
+      <Railing
+        path={[
+          [x1, z1 - c - 0.3],
+          [x0 + c + 0.3, z1 - c - 0.3],
+          [x0 + c + 0.3, z0],
+        ]}
+        y={d.y}
+        h={d.railTop - d.y}
+      />
+    </group>
+  );
 };
 
 // The stone band capping the north face: flat bottom, gently pitched top
@@ -1008,24 +1151,12 @@ export const Massing: React.FC = () => (
     {PIERS.map((p) => (
       <Prism key={p.name} poly={p.poly} y0={p.y0} y1={p.top} color={C.concrete} />
     ))}
-    {/* tower core, open between Level 3 and Level 4 */}
-    <BoxXYZ
-      x={[TOWER.x0 + 0.2, TOWER.x1 - 0.2]}
-      y={[0, TOWER_OPEN.y0 - TOWER_OPEN.slab]}
-      z={[TOWER.z0, TOWER.z1 - 0.2]}
-      color={C.metal}
-      lineColor={C.lineOnDark}
-    />
-    <BoxXYZ
-      x={[TOWER.x0 + 0.2, TOWER.x1 - 0.2]}
-      y={[TOWER_OPEN.y1, TOWER.eave]}
-      z={[TOWER.z0, TOWER.z1 - 0.2]}
-      color={C.metal}
-      lineColor={C.lineOnDark}
-    />
+    {/* tower body in new white siding, open between Level 3 and Level 4 */}
+    <TowerSkin />
     <TowerOpenLevel />
     <EntryVestibule />
-    <GableVolume
+    {/* single-slope roof, high on the west, small eaves (4/G160) */}
+    <CorrugatedShed
       v={{
         name: "tower roof",
         x: [TOWER.x0, TOWER.x1],
@@ -1035,6 +1166,11 @@ export const Massing: React.FC = () => (
         ridge: TOWER.ridge,
         axis: "x",
         mat: "metal",
+        skin: "corrugated",
+        roof: "shed",
+        look: "newWhite",
+        // the west eave stays short where it passes the central gable's end
+        overhang: { start: EAVE, end: EAVE, a: 0.5, b: EAVE },
       }}
     />
 
@@ -1047,21 +1183,7 @@ export const Massing: React.FC = () => (
     <Prism poly={eastRoofEdgePoly()} y0={EAST_ROOF_EDGE.y[0]} y1={EAST_ROOF_EDGE.y[1]} color={C.precast} />
     <Prism poly={westRoofEdgePoly()} y0={WEST_ROOF_EDGE.y[0]} y1={WEST_ROOF_EDGE.y[1]} color={C.precast} />
     <PrecastTowerTop />
-    <BoxXYZ
-      x={FLAT_ROOF.x}
-      y={[FLAT_ROOF.y, MAIN.top + 0.05]}
-      z={FLAT_ROOF.z}
-      color={C.roof}
-    />
-    <Railing
-      path={[
-        [FLAT_ROOF.x[1], MAIN.z1],
-        [MAIN.x0, MAIN.z1],
-        [MAIN.x0, FLAT_ROOF.z[0]],
-      ]}
-      y={MAIN.top}
-      h={2.5}
-    />
+    <SouthDeck />
     <ConcreteRoof />
     {HEAD_HOUSE.map((v) =>
       v.skin === "corrugated" ? (
@@ -1076,6 +1198,7 @@ export const Massing: React.FC = () => (
       ),
     )}
     <ElevatorEnclosure />
+    <HgRoofExtension />
 
     {/* Wing roof deck and its pieces */}
     <Prism poly={WING_POLY} y0={WING_ROOF.y - 0.3} y1={WING_ROOF.y} color={C.deck} holes={WELL_HOLES} />

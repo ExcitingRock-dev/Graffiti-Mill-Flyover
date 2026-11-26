@@ -4,7 +4,15 @@ import { CUTS, FACE_TONE, PANELS, PX_PER_FT, Panel } from "./geometry";
 import { Massing } from "./Massing";
 import type { FacadeTextures } from "./useFacadeTextures";
 
-const PLAN_CENTER: [number, number] = [100, -27];
+// outward direction (x, z) of each face: a panel is pushed proud along its wall
+// normal on this side (a plan-center test fails for walls like the stair
+// tower's north face, which lies south of the building's middle)
+const FACE_OUT: Record<Panel["face"], [number, number]> = {
+  east: [0, 1],
+  west: [0, -1],
+  north: [1, 0],
+  south: [-1, 0],
+};
 
 // One elevation crop mapped onto a wall segment from panel.a to panel.b
 const FacadePanel: React.FC<{ panel: Panel; base: THREE.Texture }> = ({
@@ -26,15 +34,15 @@ const FacadePanel: React.FC<{ panel: Panel; base: THREE.Texture }> = ({
 
     const [ax, az] = panel.a;
     const [bx, bz] = panel.b;
-    const yTop = (panel.l1 - sy0) / PX_PER_FT;
-    const yBot = (panel.l1 - sy1) / PX_PER_FT;
+    const [yTop, yBot] = panel.y ?? [(panel.l1 - sy0) / PX_PER_FT, (panel.l1 - sy1) / PX_PER_FT];
     const len = Math.hypot(bx - ax, bz - az);
     const mx = (ax + bx) / 2;
     const mz = (az + bz) / 2;
     // push the drawing 0.15 ft outward (away from the building) so it sits proud of the core
     let nx = (bz - az) / len;
     let nz = -(bx - ax) / len;
-    if (nx * (mx - PLAN_CENTER[0]) + nz * (mz - PLAN_CENTER[1]) < 0) {
+    const [fx, fz] = FACE_OUT[panel.face];
+    if (nx * fx + nz * fz < 0) {
       nx = -nx;
       nz = -nz;
     }
