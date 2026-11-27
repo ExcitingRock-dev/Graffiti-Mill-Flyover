@@ -1,10 +1,8 @@
 import { Canvas } from "@react-three/fiber";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import * as THREE from "three";
 import { Building } from "../src/flyover/Building";
-import { CUTS } from "../src/flyover/geometry";
-import type { CutKey, FacadeTextures } from "../src/flyover/useFacadeTextures";
+import { loadFacadeTextures, type FacadeTextures } from "../src/flyover/useFacadeTextures";
 import { ExportGlb } from "./ExportGlb";
 import { FlyControls, VIEWS } from "./FlyControls";
 
@@ -16,18 +14,9 @@ const useTextures = () => {
   const [textures, setTextures] = useState<FacadeTextures | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    const keys = Object.keys(CUTS) as CutKey[];
-    Promise.all(keys.map((k) => loader.loadAsync("/" + CUTS[k].file)))
-      .then((list) => {
-        const out = {} as FacadeTextures;
-        list.forEach((t, i) => {
-          t.colorSpace = THREE.SRGBColorSpace;
-          t.anisotropy = 8;
-          out[keys[i]] = t;
-        });
-        setTextures(out);
-      })
+    // same drawings as the Remotion scene, window holes included
+    loadFacadeTextures((file) => "/" + file)
+      .then(setTextures)
       .catch((e) => setError(String(e)));
   }, []);
   return { textures, error };

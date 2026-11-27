@@ -994,3 +994,196 @@ export const STAIR_LANDINGS: Landing[] = [
     railTop: WING_ROOF.guardTop,
   },
 ];
+
+// ---- Windows (Shop Drawings Rev.1, 11/23/2026) -----------------------------
+// Only the window information comes from the shop drawings: tags, frame sizes,
+// lite layout (frame sheets) and where each one sits (shop elevations 200-202,
+// measured). Building elements from the model win over the drawings. No tags
+// are shown in the model.
+//
+// Each window sits in one wall (WINDOW_WALLS in windowGeometry.ts):
+//   E  main east, z = grid B          ET tower east, z = TOWER.z1
+//   EW wing east (oblique)            W  main west, z = grid K
+//   WP New Precast west face          WW wing west (oblique)
+//   S  main south, x = grid 2         ST tower south, x = TOWER.x0
+//   N  main north, x = grid 9         NT tower north, x = TOWER.x1
+//   NW wing north, x = grid 13
+//   LB / LS / LN light well (TreeBox): back wall, south side, north side
+// u: where the window's center is along the wall, in the elevation's own
+//    coordinate: x on the east / west faces, z on the south / north faces
+//    (oblique walls are drawn in projection, so u is still x there)
+// y0: bottom of the frame (ft above Level 1); for round and raked windows,
+//    the CENTER
+// w, h: frame size in INCHES, as on the frame sheets
+// cols, rows: daylight-opening sizes (in) left to right / top to bottom as
+//    seen from outside; they set the mullion positions (scaled to fit)
+export type WindowSystem = "SF" | "WW" | "CW";
+export type WindowWall = "E" | "ET" | "EW" | "W" | "WP" | "WW" | "S" | "ST" | "N" | "NT" | "NW" | "LB" | "LS" | "LN";
+export type WindowSpec = {
+  tag: string;
+  wall: WindowWall;
+  u: number;
+  y0: number;
+  w: number;
+  h: number;
+  cols: number[];
+  rows: number[];
+  sys: WindowSystem;
+  shape?: "rect" | "round" | "raked";
+  nis?: boolean; // "not in scope" on the shop drawings: built as measured
+};
+
+// framing systems (frame sheets): sightline, depth, perimeter border (in)
+export const WINDOW_SYSTEMS: Record<WindowSystem, { sight: number; depth: number; border: number }> = {
+  SF: { sight: 2, depth: 4.5, border: 2.25 }, // Series 3000XT storefront 2 x 4-1/2
+  WW: { sight: 2.25, depth: 5, border: 3 }, // TCR-225 window wall 2-1/4 x 5
+  CW: { sight: 2.5, depth: 6, border: 2.5 }, // Reliance curtain wall 2-1/2 x 6
+};
+
+// How a window is set in its wall (Collin 2026-11-27: setbacks vary; for now
+// 4/A933 for anything in brick, 4/A934 for the south tower's metal panel).
+// setback: frame's outer face behind the wall's face (ft)
+// sillProud: how far the sill flashing's drip stands out past the face (ft)
+// brick: sloped mortar wash under metal flashing, hemmed drip at the face;
+// tower: prefinished flashing projecting 1" with a drip
+export type WindowSetting = "brick" | "precast" | "tower" | "interior";
+export const WINDOW_SETTINGS: Record<WindowSetting, { setback: number; sillProud: number }> = {
+  brick: { setback: 4.875 / 12, sillProud: 0.5 / 12 }, // 4/A933
+  precast: { setback: 4.875 / 12, sillProud: 0.5 / 12 }, // assumed like brick
+  tower: { setback: 0.5 / 12, sillProud: 1 / 12 }, // 4/A934
+  interior: { setback: 0, sillProud: 0 }, // TreeBox: on the light-well walls
+};
+
+export const WINDOW_COLORS = {
+  frame: "#1b1b1d", // black anodized
+  glass: "#f2c48a", // the drawing windows' warm glass
+  flashing: "#2b2b2d",
+  wash: "#bfb6a2", // mortar wash
+  brickReveal: "#d0b98d", // brick returns at the jambs and head
+  precastReveal: "#b2b1ac",
+};
+
+// CW6 (x3): round curtain wall in the stair tower, frame dia 143", a 75" round
+// center lite and four ring lites (frame sheet)
+export const ROUND_CW6 = { d: 143, center: 75, ringMullions: 4 };
+// W22 (x3): small round windows in the west brick, frame dia 35", DLO 30"
+export const ROUND_W22 = { d: 35, dlo: 30 };
+// W6 (x2): raked stair windows in the precast west face, a parallelogram
+// rising at 28.61 deg toward true south: 180-3/8" along the slope, vertical
+// ends 26-5/8", two lites
+export const RAKED_W6 = { angle: 28.61, along: 180.375, end: 26.625 };
+
+const eq = (n: number) => Array.from({ length: n }, () => 1);
+const TREEBOX_SILL = H.l2 + 4; // frame bottom (2/A102, frame sheets)
+export const WINDOWS: WindowSpec[] = [
+  // ---- true east, main face (sheet 202)
+  // grid 2-3
+  { tag: "CW3", wall: "E", u: 27.0, y0: 54.37, w: 213, h: 151, cols: [64.5, 74, 64.5], rows: [56.5, 87], sys: "CW" },
+  { tag: "WW23", wall: "E", u: 27.0, y0: 40.31, w: 219, h: 104, cols: [68, 74, 68], rows: [24.875, 70.875], sys: "WW" },
+  { tag: "WW14", wall: "E", u: 27.0, y0: 26.29, w: 214, h: 110, cols: [65.5, 74, 65.5], rows: [22.875, 78.875], sys: "WW" },
+  { tag: "W23", wall: "E", u: 27.0, y0: 14.37, w: 213.5, h: 85.5, cols: [65.75, 74, 65.75], rows: [21.5, 57.5], sys: "SF" },
+  { tag: "W23", wall: "E", u: 27.0, y0: 1.99, w: 213.5, h: 85.5, cols: [65.75, 74, 65.75], rows: [21.5, 57.5], sys: "SF" },
+  // grid 4-5
+  { tag: "WW19", wall: "E", u: 63.66, y0: 44.12, w: 138, h: 58, cols: [46.5, 36, 46.5], rows: [52], sys: "WW" },
+  { tag: "WW15", wall: "E", u: 63.66, y0: 30.78, w: 138, h: 56, cols: [46.5, 36, 46.5], rows: [50], sys: "WW" },
+  { tag: "W28", wall: "E", u: 63.66, y0: 16.87, w: 137.5, h: 55.5, cols: [46.75, 36, 46.75], rows: [51], sys: "SF" },
+  // grid 6-7
+  { tag: "CW4", wall: "E", u: 92.27, y0: 54.37, w: 107, h: 155, cols: [49.75, 49.75], rows: [60.5, 87], sys: "CW" },
+  // WW22 / WW18: the elevation draws one row, the frame sheets two rows and
+  // 101" / 104" tall; the head stays where drawn (49.57), the frame runs down
+  { tag: "WW22", wall: "E", u: 92.27, y0: 49.57 - 101 / 12, w: 108, h: 101, cols: [50.625, 50.625], rows: [60.875, 31.875], sys: "WW" },
+  { tag: "WW16", wall: "E", u: 92.3, y0: 30.8, w: 108, h: 56, cols: eq(7), rows: eq(4), sys: "WW" },
+  { tag: "W24", wall: "E", u: 92.31, y0: 4.62, w: 107.5, h: 54.5, cols: [50.75, 50.75], rows: [50], sys: "SF" },
+  // grid 7-9
+  { tag: "CW5", wall: "E", u: 107.7, y0: 54.37, w: 218, h: 155, cols: [67, 74, 67], rows: [60.5, 87], sys: "CW" },
+  { tag: "WW18", wall: "E", u: 107.7, y0: 49.57 - 104 / 12, w: 214, h: 104, cols: [65.5, 74, 65.5], rows: [63.875, 31.875], sys: "WW" },
+  { tag: "WW17", wall: "E", u: 107.67, y0: 30.8, w: 219, h: 56, cols: eq(15), rows: [10.875, 10.75, 10.75, 10.875], sys: "WW" },
+  { tag: "W25", wall: "E", u: 107.7, y0: 16.87, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF" },
+  { tag: "W25", wall: "E", u: 107.7, y0: 4.62, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF" },
+  // wing, grid 9-10 (its straight part, on grid B)
+  { tag: "W29", wall: "E", u: 128.585, y0: 14.37, w: 143.5, h: 91.5, cols: [36.75, 62, 36.75], rows: [87], sys: "SF" },
+  // ---- true east, wing oblique wall
+  { tag: "W30", wall: "EW", u: 149.87, y0: 14.37, w: 173.5, h: 87.5, cols: [45.75, 74, 45.75], rows: [83], sys: "SF" },
+  { tag: "W26", wall: "EW", u: 149.87, y0: 4.48, w: 173.5, h: 65.5, cols: [45.75, 74, 45.75], rows: [61], sys: "SF" },
+  { tag: "W31", wall: "EW", u: 191.6, y0: 14.37, w: 197.5, h: 87.5, cols: [52.25, 85, 52.25], rows: [83], sys: "SF" },
+  { tag: "W27", wall: "EW", u: 191.56, y0: 6.84, w: 197.5, h: 37.5, cols: [48, 93.5, 48], rows: [33], sys: "SF" },
+  // ---- stair tower, east face (4/A934 setting)
+  { tag: "WW20", wall: "ET", u: 73.1, y0: 44.9, w: 36, h: 72, cols: [31.5], rows: [66], sys: "WW" },
+  { tag: "WW21", wall: "ET", u: 84.6, y0: 47.15, w: 30, h: 120, cols: [25.5], rows: [114], sys: "WW" },
+  { tag: "WW24", wall: "ET", u: 84.35, y0: 65.4, w: 48, h: 72, cols: [43.5], rows: [66], sys: "WW" },
+  { tag: "WW25", wall: "ET", u: 78.5, y0: 72.87, w: 144, h: 36, cols: [139.5], rows: [30], sys: "WW" },
+  { tag: "CW6", wall: "ET", u: 78.54, y0: 85.07, w: 143, h: 143, cols: [], rows: [], sys: "CW", shape: "round" },
+  // ---- TreeBox (Collin 2026-11-27): Level 2 glazing boxing in the light
+  // well, right under the edges of the roof grate (2/A102); set on the well walls
+  { tag: "W32", wall: "LB", u: (LIGHT_WELL.x[0] + LIGHT_WELL.x[1]) / 2, y0: TREEBOX_SILL, w: 232.5, h: 67.5, cols: eq(4), rows: [63], sys: "SF" },
+  { tag: "W33", wall: "LS", u: (LIGHT_WELL.z0 + wingEastZ(LIGHT_WELL.x[0]) - 1) / 2, y0: TREEBOX_SILL, w: 139.5, h: 67.5, cols: eq(2), rows: [63], sys: "SF" },
+  { tag: "W34", wall: "LN", u: (LIGHT_WELL.z0 + wingEastZ(LIGHT_WELL.x[1]) - 1) / 2, y0: TREEBOX_SILL, w: 55.5, h: 67.5, cols: [51.5], rows: [63], sys: "SF" },
+
+  // ---- true west, main face (sheet 201)
+  { tag: "WW3", wall: "W", u: 65.87, y0: 40.25, w: 185, h: 104, cols: [48, 80, 48], rows: [24.875, 70.875], sys: "WW" },
+  { tag: "WW4", wall: "W", u: 47.16, y0: 40.25, w: 216, h: 104, cols: [60, 87, 60], rows: [24.875, 70.875], sys: "WW" },
+  { tag: "WW4", wall: "W", u: 27.2, y0: 40.25, w: 216, h: 104, cols: [60, 87, 60], rows: [24.875, 70.875], sys: "WW" },
+  { tag: "WW1", wall: "W", u: 65.6, y0: 26.28, w: 178, h: 110, cols: [48, 73, 48], rows: [24.875, 76.875], sys: "WW" },
+  { tag: "WW2", wall: "W", u: 47.25, y0: 26.28, w: 216, h: 110, cols: [60, 87, 60], rows: [24.875, 76.875], sys: "WW" },
+  { tag: "W5", wall: "W", u: 73.33, y0: 52.78, w: 39.5, h: 87.5, cols: [35.5], rows: [83], sys: "SF" },
+  ...[41.9, 31.45, 22.76].map(
+    (u): WindowSpec => ({ tag: "W22", wall: "W", u, y0: 58.37, w: 35, h: 35, cols: [], rows: [], sys: "SF", shape: "round" }),
+  ),
+  // not in scope: measured on the elevation
+  { tag: "W8", wall: "W", u: 65.66, y0: 11.96, w: 177.6, h: 114, cols: [47.3, 72.9, 47.3], rows: [79.5, 27.2], sys: "SF", nis: true },
+  { tag: "W9", wall: "W", u: 52.81, y0: 14.46, w: 71.5, h: 84, cols: eq(2), rows: [1], sys: "SF", nis: true },
+  { tag: "W10", wall: "W", u: 40.785, y0: 14.46, w: 60.6, h: 84, cols: eq(2), rows: [1], sys: "SF", nis: true },
+  { tag: "W11", wall: "W", u: 32.875, y0: 12.2, w: 42.6, h: 70.8, cols: [1], rows: [1], sys: "SF", nis: true },
+  { tag: "W12", wall: "W", u: 23.9, y0: 14.7, w: 136.8, h: 81.6, cols: eq(3), rows: [1], sys: "SF", nis: true },
+  // ---- true west, New Precast Structure
+  ...[38.0, 24.98, 12.11].map(
+    (y0): WindowSpec => ({ tag: "W5", wall: "WP", u: 115.755, y0, w: 39.5, h: 87.5, cols: [35.5], rows: [83], sys: "SF" }),
+  ),
+  ...[34.48, 21.68].map(
+    (y0): WindowSpec => ({ tag: "W7", wall: "WP", u: 96.955, y0, w: 35.5, h: 35.5, cols: [1], rows: [1], sys: "SF" }),
+  ),
+  ...[32.16, 18.55].map(
+    (y0): WindowSpec => ({ tag: "W6", wall: "WP", u: 106.69, y0, w: 0, h: 0, cols: eq(2), rows: [1], sys: "SF", shape: "raked" }),
+  ),
+  // ---- true west, wing oblique wall
+  { tag: "W4", wall: "WW", u: 127.455, y0: 13.73, w: 172.7, h: 92.8, cols: eq(3), rows: [62, 23.4], sys: "SF" },
+  { tag: "W3", wall: "WW", u: 145.62, y0: 13.73, w: 120, h: 92.8, cols: eq(2), rows: [62, 23.4], sys: "SF" },
+  { tag: "W2", wall: "WW", u: 155.57, y0: 13.73, w: 71.5, h: 62.3, cols: eq(2), rows: [1], sys: "SF" },
+  { tag: "W1", wall: "WW", u: 150.175, y0: 2.4, w: 119.4, h: 86.6, cols: eq(3), rows: [60, 20], sys: "SF" },
+  { tag: "NIS", wall: "WW", u: 174.415, y0: 13.73, w: 152.5, h: 92.8, cols: eq(3), rows: [62, 23.4], sys: "SF", nis: true },
+
+  // ---- true south, main face (sheet 200 left)
+  { tag: "CW1", wall: "S", u: -15.975, y0: 54.5, w: 191, h: 151, cols: [48, 85, 48], rows: [56.5, 87], sys: "CW" },
+  { tag: "WW8", wall: "S", u: -15.975, y0: 41.96, w: 192, h: 84, cols: [54, 75, 54], rows: [25.125, 50.625], sys: "WW" },
+  { tag: "WW9", wall: "S", u: -30.7, y0: 54.3, w: 114, h: 94, cols: [53.625, 53.625], rows: [88], sys: "WW" },
+  { tag: "WW7", wall: "S", u: -30.7, y0: 41.96, w: 114, h: 84, cols: [53.625, 53.625], rows: [25.125, 50.625], sys: "WW" },
+  { tag: "WW6", wall: "S", u: -15.85, y0: 32.83, w: 192, h: 50, cols: eq(5), rows: [44], sys: "WW" },
+  // WW5 / W18: the frame sheets say ~193" wide, the elevation draws ~148"
+  // between the corner and the column; built as drawn
+  { tag: "WW5", wall: "S", u: -53.885, y0: 27.9, w: 148, h: 90, cols: eq(13), rows: eq(6), sys: "WW" },
+  { tag: "W18", wall: "S", u: -53.885, y0: 16.53, w: 148, h: 59.5, cols: eq(13), rows: eq(4), sys: "SF" },
+  { tag: "W19", wall: "S", u: -20.035, y0: 19.87, w: 92.5, h: 87.5, cols: [43.25, 43.25], rows: [83], sys: "SF" },
+  // W15 / W16 / W17: single lites, widths as drawn
+  { tag: "W15", wall: "S", u: -48.975, y0: 2.44, w: 42.6, h: 83.5, cols: [1], rows: [1], sys: "SF" },
+  { tag: "W16", wall: "S", u: -39.375, y0: 2.44, w: 58.9, h: 83.5, cols: [1], rows: [1], sys: "SF" },
+  { tag: "W17", wall: "S", u: -27.835, y0: 2.44, w: 42.4, h: 83.5, cols: [1], rows: [1], sys: "SF" },
+  // ---- stair tower, south face (the elevation tags WW10 / WW11 the other way
+  // round from the frame sheets; built at the drawn sizes)
+  { tag: "WW10", wall: "ST", u: -3.22, y0: 52.0, w: 48, h: 96, cols: [1], rows: [1], sys: "WW" },
+  { tag: "WW11", wall: "ST", u: 3.1, y0: 44.7, w: 72, h: 36, cols: [1], rows: [1], sys: "WW" },
+  { tag: "CW6", wall: "ST", u: 0.95, y0: 85.0, w: 143, h: 143, cols: [], rows: [], sys: "CW", shape: "round" },
+
+  // ---- true north, main face above the wing roof (sheet 200 right)
+  ...[-16.385, -35.565].flatMap((u): WindowSpec[] => [
+    { tag: "CW2", wall: "N", u, y0: 54.5, w: 209, h: 155, cols: [54, 91, 54], rows: [60.5, 87], sys: "CW" },
+    { tag: "WW13", wall: "N", u, y0: 42.14, w: 210, h: 90, cols: [63.5, 74, 63.5], rows: [60.875, 20.875], sys: "WW" },
+  ]),
+  { tag: "W12", wall: "N", u: -16.47, y0: 30.86, w: 209.5, h: 56, cols: eq(14), rows: eq(2), sys: "SF" },
+  // (the 5-lite window west of it, between the piers, is the Speakeasy's:
+  // SpeakeasyWall.tsx)
+  { tag: "CW6", wall: "NT", u: 0.91, y0: 85.0, w: 143, h: 143, cols: [], rows: [], sys: "CW", shape: "round" },
+  // ---- true north, wing
+  { tag: "W20", wall: "NW", u: -33.945, y0: 4.01, w: 137.5, h: 71.5, cols: [36, 57.5, 36], rows: [67], sys: "SF" },
+  { tag: "W20", wall: "NW", u: -15.945, y0: 4.01, w: 137.5, h: 71.5, cols: [36, 57.5, 36], rows: [67], sys: "SF" },
+  { tag: "W21", wall: "NW", u: -15.945, y0: 14.35, w: 137.5, h: 91.5, cols: [36, 57.5, 36], rows: [87], sys: "SF" },
+];

@@ -5,6 +5,9 @@ import { concreteTexture } from "./concrete";
 import { TanBrickWall, TanBrickWallSpec } from "./TanBrick";
 import { SpeakeasyWall } from "./SpeakeasyWall";
 import { EastDoorBay, EAST_DOOR_BAY_CUT } from "./EastDoorBay";
+import { MAIN_CORE_POCKETS, PRECAST_POCKETS, TOWER_POCKETS } from "./windowGeometry";
+import { Windows } from "./Windows";
+import { worldUV } from "./uv";
 import {
   EAST_ROOF_EDGE,
   ELEVATOR,
@@ -784,7 +787,17 @@ const mainCorePieces = (): Box3[] => {
   const p = speakeasyPocket();
   return subtractAll(
     [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - MAIN_ROOF_SLAB], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
-    [p, aboveTower, aboveDeck, deckHatchShaft, stepWallRecess, stepWallRecessFloor, EAST_DOOR_BAY_CUT, ...insideSheds],
+    [
+      p,
+      aboveTower,
+      aboveDeck,
+      deckHatchShaft,
+      stepWallRecess,
+      stepWallRecessFloor,
+      EAST_DOOR_BAY_CUT,
+      ...insideSheds,
+      ...MAIN_CORE_POCKETS, // window openings (windowGeometry.ts)
+    ],
   );
 };
 const mainRoofSlab = (): Box3[] => {
@@ -870,7 +883,10 @@ const TowerSkin: React.FC = () => {
           [-1.2, TOWER_OPEN.y0 - TOWER_OPEN.slab],
           [TOWER_OPEN.y1, TOWER.eave],
         ] as Range[]
-      ).map((y) => worldUV(boxAt([TOWER.x0, TOWER.x1], y, [TOWER.z0, TOWER.z1]))),
+      )
+        // window openings cut in (windowGeometry.ts)
+        .flatMap((y) => subtractAll([{ x: [TOWER.x0, TOWER.x1], y, z: [TOWER.z0, TOWER.z1] }], TOWER_POCKETS))
+        .map((b) => worldUV(boxAt(b.x, b.y, b.z))),
     [],
   );
   return (
@@ -1034,24 +1050,6 @@ const NorthBand: React.FC = () => {
 // rising from its roof on the east side
 const PrecastTowerTop: React.FC = () => <NorthWestWall />;
 
-// UVs from world position (feet), picked by each face's facing, so pieces
-// that share a plane carry one continuous texture with no seam
-const worldUV = (g: THREE.BufferGeometry) => {
-  const geo = g.index ? g.toNonIndexed() : g;
-  geo.computeVertexNormals();
-  const p = geo.getAttribute("position");
-  const n = geo.getAttribute("normal");
-  const uv = new Float32Array(p.count * 2);
-  for (let i = 0; i < p.count; i++) {
-    const [ax, ay, az] = [Math.abs(n.getX(i)), Math.abs(n.getY(i)), Math.abs(n.getZ(i))];
-    const [u, v] =
-      ay >= ax && ay >= az ? [p.getX(i), p.getZ(i)] : ax >= az ? [p.getZ(i), p.getY(i)] : [p.getX(i), p.getY(i)];
-    uv[2 * i] = u;
-    uv[2 * i + 1] = v;
-  }
-  geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-  return geo;
-};
 const boxAt = (x: Range, y: Range, z: Range) =>
   new THREE.BoxGeometry(x[1] - x[0], y[1] - y[0], z[1] - z[0]).translate(
     (x[0] + x[1]) / 2,
@@ -1088,7 +1086,10 @@ const NewPrecastStructure: React.FC = () => {
       .rotateY(Math.PI / 2)
       .translate(e.x[0], 0, 0);
     const geos = [
-      boxAt([t.x[0], N], [gr, t.roof - slab], [W, E]), // tower body
+      // tower body, with the window openings cut in (windowGeometry.ts)
+      ...subtractAll([{ x: [t.x[0], N], y: [gr, t.roof - slab], z: [W, E] }], PRECAST_POCKETS).map((b) =>
+        boxAt(b.x, b.y, b.z),
+      ),
       boxAt([N - pT, N], [t.roof - slab, t.top], [W, E]), // north parapet
       boxAt([t.x[0], N - pT], [t.roof - slab, t.top], [W, W + pT]), // west parapet
       elev,
@@ -1256,7 +1257,8 @@ export const Massing: React.FC = () => (
     <StepWallConcrete />
     <TanBrickWall spec={STEP_WALL_BRICK} />
     <EastDoorBay />
-    <Prism poly={WING_POLY} y0={0} y1={H_WING_CORE} color={C.brick} holes={WELL_HOLES} />
+    <Prism poly={WING_CORE_POLY} y0={0} y1={H_WING_CORE} color={C.brick} holes={WELL_HOLES} />
+    <Windows />
     {/* concrete wall columns (pilasters), all faces: PIERS in plan.ts */}
     {PIERS.map((p) => (
       <Prism key={p.name} poly={p.poly} y0={p.y0} y1={p.top} color={C.concrete} />
@@ -1341,6 +1343,37 @@ export const Massing: React.FC = () => (
 
 const H_WING_CORE = 24;
 const WELL_HOLES = [LIGHT_WELL_POLY];
+// The wing's solid core stands back from its drawn walls so the windows'
+// reveals and frames have room behind the drawings: every WING_POLY edge with
+// windows (west oblique, north, east oblique, the straight east part) moves in
+// WING_CORE_INSET; the grid-10 return and the edge against the main block stay.
+// Less than the 1 ft between the east wall and the light well.
+const WING_CORE_INSET = 0.85;
+const WING_CORE_POLY: XZ[] = (() => {
+  const P = WING_POLY;
+  const n = P.length;
+  const inset = [WING_CORE_INSET, WING_CORE_INSET, WING_CORE_INSET, 0, WING_CORE_INSET, 0];
+  // centroid, to tell which side of an edge is inside
+  const cx = P.reduce((s, p) => s + p[0], 0) / n;
+  const cz = P.reduce((s, p) => s + p[1], 0) / n;
+  const lines = P.map((a, i) => {
+    const b = P[(i + 1) % n];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    let nx = -(b[1] - a[1]) / l;
+    let nz = (b[0] - a[0]) / l;
+    if ((cx - a[0]) * nx + (cz - a[1]) * nz < 0) [nx, nz] = [-nx, -nz];
+    const o: XZ = [a[0] + nx * inset[i], a[1] + nz * inset[i]];
+    return { o, d: [b[0] - a[0], b[1] - a[1]] as XZ };
+  });
+  // each corner: where its two moved edges meet
+  return P.map((_, i) => {
+    const L1 = lines[(i + n - 1) % n];
+    const L2 = lines[i];
+    const den = L1.d[0] * L2.d[1] - L1.d[1] * L2.d[0];
+    const t = ((L2.o[0] - L1.o[0]) * L2.d[1] - (L2.o[1] - L1.o[1]) * L2.d[0]) / den;
+    return [L1.o[0] + L1.d[0] * t, L1.o[1] + L1.d[1] * t] as XZ;
+  });
+})();
 
 // Wing roof edge (4/G160 NE axon, Collin 2026-11-25): a 6" brick parapet 2' to
 // 2'-7" above the roof deck, and behind it (roof side) a black horizontal slat

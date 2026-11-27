@@ -60,6 +60,9 @@ export const FlyControls: React.FC<{ onReadout: Readout }> = ({ onReadout }) => 
       apply();
     };
     go(VIEWS[0]);
+    // for scripted checks from the browser console: flyTo([x, y, z], [x, y, z])
+    (window as unknown as { flyTo: (pos: View["pos"], look: View["look"]) => void }).flyTo = (pos, look) =>
+      go({ name: "", pos, look });
 
     // first model surface under the screen point (grid lines ignored)
     const pick = (clientX: number, clientY: number) => {
