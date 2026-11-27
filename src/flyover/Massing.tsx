@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { CorrugatedShed, corrugatedTexture } from "./Sheds";
 import { concreteTexture } from "./concrete";
+import { TanBrickWall, TanBrickWallSpec } from "./TanBrick";
 import { SpeakeasyWall } from "./SpeakeasyWall";
+import { EastDoorBay, EAST_DOOR_BAY_CUT } from "./EastDoorBay";
 import {
   EAST_ROOF_EDGE,
   ELEVATOR,
@@ -25,6 +27,7 @@ import {
   HG_ROOF_EXTENSION,
   SOUTH_DECK,
   SOUTH_DECK_EDGE,
+  DECK_STEP_WALL,
   MAIN,
   RINGS,
   LIGHT_WELL,
@@ -742,6 +745,34 @@ const aboveDeck: Box3 = {
   y: [SOUTH_DECK.y - 1.2, MAIN.top + 1],
   z: [SOUTH_DECK.z[0], MAIN.z1 + 1],
 };
+// the step wall: 3D tan brick, then concrete 4" behind the brick face. The
+// core is cut back behind both; the concrete face is its own textured piece
+const STEP_WALL_CONCRETE = {
+  x: [DECK_STEP_WALL.brickEnd, SOUTH_DECK.x[1]] as Range,
+  y: [SOUTH_DECK.y, DECK_STEP_WALL.top] as Range,
+  face: DECK_STEP_WALL.z - DECK_STEP_WALL.recess,
+};
+const STEP_WALL_BRICK: TanBrickWallSpec = {
+  plane: "z",
+  face: DECK_STEP_WALL.z,
+  out: 1,
+  u: [GX.g2, DECK_STEP_WALL.brickEnd],
+  y: [SOUTH_DECK.y, DECK_STEP_WALL.top],
+  seed: DECK_STEP_WALL.brickSeed,
+};
+// the recess's north end is a concrete return, cut into the core
+const STEP_WALL_RETURN = 0.15;
+const stepWallRecess: Box3 = {
+  x: [MAIN.x0, STEP_WALL_CONCRETE.x[1] + STEP_WALL_RETURN],
+  y: STEP_WALL_CONCRETE.y,
+  z: [STEP_WALL_CONCRETE.face - 0.25, DECK_STEP_WALL.z],
+};
+// under the concrete part's floor slab (so the core's top doesn't share its plane)
+const stepWallRecessFloor: Box3 = {
+  x: [STEP_WALL_CONCRETE.x[0], STEP_WALL_CONCRETE.x[1] + STEP_WALL_RETURN],
+  y: [SOUTH_DECK.y - 0.35, SOUTH_DECK.y],
+  z: stepWallRecess.z,
+};
 const deckHatchShaft: Box3 = { x: DECK_HATCH.x, y: [DECK_HATCH.bottom, SOUTH_DECK.y], z: DECK_HATCH.z };
 // the corrugated sheds are hollow skins: no core or roof slab inside them
 const insideSheds: Box3[] = HEAD_HOUSE.filter((v) => v.skin === "corrugated" && v.base < MAIN.top).map((v) => ({
@@ -753,7 +784,7 @@ const mainCorePieces = (): Box3[] => {
   const p = speakeasyPocket();
   return subtractAll(
     [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - MAIN_ROOF_SLAB], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
-    [p, aboveTower, aboveDeck, deckHatchShaft, ...insideSheds],
+    [p, aboveTower, aboveDeck, deckHatchShaft, stepWallRecess, stepWallRecessFloor, EAST_DOOR_BAY_CUT, ...insideSheds],
   );
 };
 const mainRoofSlab = (): Box3[] => {
@@ -766,9 +797,12 @@ const mainRoofSlab = (): Box3[] => {
       { x: [MAIN.x0 - PIER.proud, NEW_PRECAST.x[0]], y, z: [MAIN.z0 - PIER.proud, MAIN.z0] },
     ],
     [
-    aboveTower,
-    aboveDeck,
-    ...insideSheds,
+      aboveTower,
+      // over the deck's step wall (the bulkhead) the slab runs out flush with
+      // the grid-G column's deck-side face, proud of the brick like the
+      // columns (Collin 2026-11-27)
+      { ...aboveDeck, z: [aboveDeck.z[0] + PIER.proud, aboveDeck.z[1]] },
+      ...insideSheds,
     ],
   );
   // every column that stops under the slab is fully capped by it, even where
@@ -1097,6 +1131,33 @@ const NewPrecastStructure: React.FC = () => {
   );
 };
 
+// the deck step wall's recessed concrete (DECK_STEP_WALL)
+const StepWallConcrete: React.FC = () => {
+  const c = STEP_WALL_CONCRETE;
+  // the face, the recess's floor and its north-end return: all one concrete
+  // finish (Collin 2026-11-27)
+  const { geos, tex } = useMemo(
+    () => ({
+      geos: [
+        boxAt(c.x, c.y, [c.face - 0.2, c.face]),
+        boxAt(c.x, [SOUTH_DECK.y - 0.3, SOUTH_DECK.y], [c.face, DECK_STEP_WALL.z]),
+        boxAt([c.x[1], c.x[1] + STEP_WALL_RETURN], c.y, [c.face - 0.2, DECK_STEP_WALL.z]),
+      ].map(worldUV),
+      tex: concreteTexture(),
+    }),
+    [c],
+  );
+  return (
+    <group>
+      {geos.map((g, i) => (
+        <mesh key={i} geometry={g}>
+          <meshLambertMaterial map={tex} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 // The precast tower's roof: light concrete; its edges are hidden by the
 // parapets, so no outline
 const ConcreteRoof: React.FC = () => {
@@ -1192,6 +1253,9 @@ export const Massing: React.FC = () => (
       <BoxXYZ key={"core" + i} x={b.x} y={b.y} z={b.z} color={C.brick} />
     ))}
     <SpeakeasyWall />
+    <StepWallConcrete />
+    <TanBrickWall spec={STEP_WALL_BRICK} />
+    <EastDoorBay />
     <Prism poly={WING_POLY} y0={0} y1={H_WING_CORE} color={C.brick} holes={WELL_HOLES} />
     {/* concrete wall columns (pilasters), all faces: PIERS in plan.ts */}
     {PIERS.map((p) => (

@@ -15,6 +15,7 @@ import {
   NORTH_ROOFLINE,
   PRECAST_TOWER,
   SOUTH_DECK,
+  EAST_DOOR_BAY,
   SPEAKEASY_WALL as SW,
   TOWER,
   TOWER_OPEN,
@@ -100,34 +101,28 @@ const eastPanel = (name: string, a: XZ, b: XZ, yTop: number, cut: "east" | "east
   l1: east.l1,
 });
 
+// a strip of the main east face with the door bay taken out: below it and above it
+const eastAroundBay = (name: string, x0: number, x1: number, yTop: number): Panel[] => {
+  const p = eastPanel(name, [x0, GZ.B], [x1, GZ.B], yTop);
+  return [
+    { ...p, name: name + "-low", sy: [row(east.l1, EAST_DOOR_BAY.y[0]), p.sy[1]] },
+    { ...p, name: name + "-high", sy: [p.sy[0], row(east.l1, EAST_DOOR_BAY.y[1])] },
+  ];
+};
+
 const RAW_PANELS: Panel[] = [
   // ---- true east (A403)
   // over grid 7-9 the drawing stops at the 170' roofline: the corrugated
   // sheds above it are 3D (Sheds.tsx)
   // over the Level 6 South Deck the face stops at the top of its brick curb
-  eastPanel("east-main-deck", [GX.g2, GZ.B], [SOUTH_DECK.x[1], GZ.B], SOUTH_DECK.curbTop),
-  eastPanel("east-main", [SOUTH_DECK.x[1], GZ.B], [88.0, GZ.B], H.auger),
-  // the deck's west side steps up to the 177' roof: that step wall is what the
-  // elevation shows above the guardrail. Its upper part sits where drawn; the
-  // part hidden behind the guardrail reuses the brick just above it.
-  ...(
-    [
-      [SOUTH_DECK.railTop, H.auger, H.auger],
-      [SOUTH_DECK.y, SOUTH_DECK.railTop, SOUTH_DECK.railTop + (SOUTH_DECK.railTop - SOUTH_DECK.y)],
-    ] as [number, number, number][]
-  ).map(
-    ([y0, y1, rowTop], i): Panel => ({
-      name: `deck-step-wall-${i}`,
-      cut: "east",
-      face: "east",
-      a: [GX.g2, SOUTH_DECK.z[0]],
-      b: [SOUTH_DECK.x[1], SOUTH_DECK.z[0]],
-      sx: [east.px(GX.g2), east.px(SOUTH_DECK.x[1])],
-      sy: [row(east.l1, rowTop), row(east.l1, rowTop - (y1 - y0))],
-      l1: east.l1,
-      y: [y1, y0],
-    }),
-  ),
+  // grid 3-4 between the piers is 3D brick and overhead doors (EastDoorBay.tsx):
+  // the drawing only shows below and above that bay
+  eastPanel("east-main-deck", [GX.g2, GZ.B], [EAST_DOOR_BAY.x[0], GZ.B], SOUTH_DECK.curbTop),
+  ...eastAroundBay("east-main-deck-bay", EAST_DOOR_BAY.x[0], SOUTH_DECK.x[1], SOUTH_DECK.curbTop),
+  ...eastAroundBay("east-main-bay", SOUTH_DECK.x[1], EAST_DOOR_BAY.x[1], H.auger),
+  eastPanel("east-main", [EAST_DOOR_BAY.x[1], GZ.B], [88.0, GZ.B], H.auger),
+  // the deck's west side steps up to the 177' roof: that step wall is 3D
+  // (DECK_STEP_WALL in Massing.tsx)
   eastPanel("east-main-sheds", [88.0, GZ.B], [GX.g9, GZ.B], NORTH_ROOFLINE),
   eastPanel(
     "tower-east",

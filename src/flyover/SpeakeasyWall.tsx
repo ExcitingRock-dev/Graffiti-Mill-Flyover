@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { GX, H, PIER, SPEAKEASY_WALL as W, speakeasyPocket, speakeasyWallZ } from "./plan";
+import { boxesGeometry, rngFrom } from "./TanBrick";
 
 // The Speakeasy's back wall (grid 9 north face, pier to pier). Built as real
 // units so the smashed opening steps along the courses like knocked-out
@@ -13,17 +14,6 @@ import { GX, H, PIER, SPEAKEASY_WALL as W, speakeasyPocket, speakeasyWallZ } fro
 
 type V2 = [number, number]; // (z, y) in the wall plane
 type Box = { x: [number, number]; y: [number, number]; z: [number, number]; color: THREE.Color };
-
-const rngFrom = (seed: number) => {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
 
 const smooth = (a: number, b: number, v: number) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -132,39 +122,6 @@ const buildMasonry = (rand: () => number) => {
     course(y0, y1, W.brick.w, (k % 2) * (W.brick.w / 2), [zW - 1, edge], BRICK_X, W.brick.joint, 0.12, brick);
   }
   return { boxes, topHole };
-};
-
-// one geometry for many boxes, with per-box vertex colors
-const boxesGeometry = (boxes: Box[]) => {
-  const pos: number[] = [];
-  const nor: number[] = [];
-  const col: number[] = [];
-  const idx: number[] = [];
-  const faces: { n: [number, number, number]; c: [number, number, number][] }[] = [
-    { n: [1, 0, 0], c: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] },
-    { n: [-1, 0, 0], c: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]] },
-    { n: [0, 1, 0], c: [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]] },
-    { n: [0, -1, 0], c: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
-    { n: [0, 0, 1], c: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] },
-    { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] },
-  ];
-  for (const b of boxes) {
-    for (const f of faces) {
-      const base = pos.length / 3;
-      for (const [i, j, k] of f.c) {
-        pos.push(b.x[i], b.y[j], b.z[k]);
-        nor.push(...f.n);
-        col.push(b.color.r, b.color.g, b.color.b);
-      }
-      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  g.setIndex(idx);
-  return g;
 };
 
 // ---- polygon helpers (convex polygons in the wall plane) ----------------------

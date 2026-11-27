@@ -40,6 +40,7 @@ export const H = {
   l2: 12, // 112'
   l3: 24, // 124'
   l4: 38, // 138'
+  l5: 52, // 152' (A403 sills at grid 3-4)
   e6: 70.0, // Level E6 (170'-0"): the Level 6 South Deck (A402, 3/G160)
   auger: 77, // 177'-0"
   wingParapet: 27.5,
@@ -597,6 +598,18 @@ export const SOUTH_DECK = {
   curbThick: 0.67,
   railTop: 73.5,
 };
+// the deck's west side steps up to the 177' roof: this step wall (the
+// bulkhead) under the roof slab is 3D tan brick (TAN_BRICK) from the grid-G
+// column to where
+// A403's brick ends (x 38.0, grid 3), then concrete set 4" behind the brick
+// face, on to the central gable (Collin 2026-11-27)
+export const DECK_STEP_WALL = {
+  z: SOUTH_DECK.z[0], // brick face, facing the deck (+z)
+  top: MAIN.top - MAIN_ROOF_SLAB, // under the roof slab
+  brickEnd: 38.0,
+  recess: 4 / 12,
+  brickSeed: 31,
+};
 
 // ---- Decks (lavender on A140) --------------------------------------------
 export type Deck = { name: string; poly: XZ[]; y: number; rail?: XZ[] };
@@ -668,43 +681,85 @@ export type FrameEdge = "front" | "west" | "east";
 // Column lines and levels measured on 1/402 PLAN WEST ELEVATION (TRUE SOUTH),
 // checked against 3/G160 SE axon and Collin's markup (2026-11-23).
 // Columns stand in two rows: front (true south edge) and back (at grid 2).
+// The upper steel (L4 deck at 138', its rail, and the columns carrying it at
+// K and z -47) is gone on 1/A402 rev 2026-1112: those columns stop at the L2
+// deck, and the z -31 column stops at the ring platform (Collin 2026-11-27).
+const FRAME_L2_DECK_Y = 14.17; // 114'-2" (2'-2" above Level 2)
+const FRAME_RING_Y = 29;
 export const FRAME = {
   x: [0.6, 15.5] as [number, number], // column rows (front, back)
   colSize: 1.1,
   cols: [
-    { z: -62, top: 38 }, // grid K, up to L4 deck
-    { z: -47, top: 38 },
-    { z: -31, top: 38 }, // L4 deck east end / ring platform west end
-    { z: -16, top: 29 }, // up to ring platform
-    { z: -1, top: 29 }, // just inside grid A
+    { z: -62, top: FRAME_L2_DECK_Y }, // grid K, up to the L2 deck
+    { z: -47, top: FRAME_L2_DECK_Y },
+    { z: -31, top: FRAME_RING_Y }, // ring platform west end
+    { z: -16, top: FRAME_RING_Y },
+    { z: -1, top: FRAME_RING_Y }, // just inside grid A
   ],
   // slabs: deck surface y, slab depth, z extent, which edges get guardrails
   decks: [
     {
       name: "L2 deck",
-      y: 14.17, // 114'-2" (2'-2" above Level 2)
+      y: FRAME_L2_DECK_Y,
       t: 2.2,
       z: [-62, -1] as [number, number],
       rails: ["front", "west", "east"] as FrameEdge[],
     },
     {
       name: "ring platform",
-      y: 29,
+      y: FRAME_RING_Y,
       t: 2,
       z: [-31, -1] as [number, number],
       rails: [] as FrameEdge[],
-    },
-    {
-      name: "L4 deck",
-      y: H.l4, // 138'
-      t: 2,
-      z: [-62, -31] as [number, number],
-      rails: ["front", "west", "east"] as FrameEdge[],
     },
   ],
   deckX: [0, GX.g2] as [number, number], // slabs run back to the grid-2 face
 };
 // Two round "silo" rings on the ring platform (A140 circles at grid 1-2, C/D)
+// ---- East overhead-door bay, grid 3-4 -------------------------------------
+// Between the grid-3 and grid-4 piers on the east face the wall is rebuilt as
+// 3D tan brick, 12" thick (three wythes, 4/A640), with glazed overhead doors
+// set behind it (Collin 2026-11-27). Typical opening per 2/A640: 16'-0" clear,
+// 11" of brick from the grid-3 pier, a steel channel header ("pinch beam")
+// bolted through at 16" o.c. on the face, 3/8" steel angle casing lining the
+// reveal with a short leg returned onto the face, and a 42" cable guardrail
+// standing in the opening just behind the face (3/A640). Sills and heads are
+// measured on A403. Level 1 has a small overhead door at grade; Level 2 an
+// overhead door and a door.
+export type DoorBayOpening = {
+  name: string;
+  x: [number, number]; // clear opening
+  y: [number, number]; // sill (floor level), head
+  infill: "ohd" | "lite";
+  cols?: number; // overhead door: glazed columns
+  header?: boolean; // steel channel header on the face
+  guard?: boolean; // cable guardrail in the opening (default yes)
+};
+export const EAST_DOOR_BAY = {
+  face: GZ.B,
+  x: [38.1, 56.2] as [number, number], // grid-3 pier face to grid-4 pier face
+  y: [0, DECK_EDGE_UNDERSIDE] as [number, number], // Level 1 to the deck edge
+  wall: 1.0, // 12": three wythes of brick
+  brickSeed: 47,
+  casing: { t: 0.03, leg: 0.28 }, // 3/8" plate, ~3 3/8" leg on the face
+  jambTube: { w: 0.28, d: 0.17 }, // HSS jamb + head behind the wall, face flush with the casing
+  door: { back: 0.07, t: 0.18, overlap: 1 / 12, section: 1.83, frame: 0.17, bottomRail: 1.5 }, // back: gap behind the tube (track)
+  // channel runs 4" past the casing leg each side (Collin 2026-11-27)
+  header: { h: 0.83, proud: 0.22, plate: 0.035, past: 4 / 12, boltPitch: 16 / 12 }, // C10 channel
+  guard: { h: 3.5, set: 0.23, tube: 2 / 12, postMax: 4, bottomRail: 0.19, cablePitch: 3 / 12, cable: 0.025 },
+  sill: 0.6, // concrete floor slab edge showing at each sill
+  openings: [
+    // at grade: a 2-wide glazed overhead door, no guardrail (A403)
+    { name: "L1 overhead door", x: [42.1, 47.9], y: [0, 7.7], infill: "ohd", cols: 2, header: true, guard: false },
+    { name: "L2 overhead door", x: [39.1, 49.5], y: [H.l2, 21.3], infill: "ohd", cols: 3, header: true },
+    // A403 draws a narrow element at x 49.9-51.1 here; unclear what it is, so
+    // brick for now (Collin 2026-11-27)
+    { name: "L2 door", x: [52.5, 55.3], y: [H.l2, 21.3], infill: "lite" },
+    { name: "L3 overhead door", x: [38.9, 54.9], y: [H.l3, 35.0], infill: "ohd", cols: 4, header: true },
+    { name: "L4 overhead door", x: [38.9, 54.9], y: [H.l4, 49.0], infill: "ohd", cols: 4, header: true },
+    { name: "L5 overhead door", x: [38.9, 54.9], y: [H.l5, 62.0], infill: "ohd", cols: 4, header: true },
+  ] as DoorBayOpening[],
+};
 export const RINGS = [
   { x: 7.9, z: -23.4, r: 6.9, y: 29, h: 4 },
   { x: 7.9, z: -8.0, r: 6.9, y: 29, h: 4 },
@@ -760,6 +815,17 @@ export const speakeasyTop = (x: number) =>
 // tan) over CMU with a door opening smashed through it, open and dark beyond.
 // The opening rises into the glass as a soft arch (not spiky), and the brick on
 // its east side wanders up to the window's top east corner.
+// the tan brick (TanBrick.tsx): modular 8" x 2-2/3" units in running bond,
+// each its own shade; the mortar bed sits mortarSet behind the brick faces
+export const TAN_BRICK = {
+  w: 0.667,
+  h: 0.221,
+  depth: 0.33,
+  joint: 0.035,
+  colors: ["#d8c49a", "#cfb98c", "#dcc9a1", "#c9b183", "#d3bd91", "#e0cfa8"],
+  mortar: "#bfb6a2",
+  mortarSet: 0.03,
+};
 export const SPEAKEASY_WALL = {
   pierZ: [-26.1, -45.1] as [number, number], // pier centers; the infill runs face to face
   pierHalf: 1,
@@ -778,10 +844,10 @@ export const SPEAKEASY_WALL = {
   // storefront frame: head, west jamb, sill (west of the opening), two mullions
   mullionZ: [-34.3, -39.3], // where Collin drew them
   frame: { face: 0.2, depth: 0.4 },
-  brick: { w: 0.667, h: 0.221, depth: 0.33, joint: 0.035 }, // modular 8" x 2-2/3"
+  brick: TAN_BRICK, // modular 8" x 2-2/3"
   cmu: { w: 1.333, h: 0.667, depth: 0.67, joint: 0.035 }, // 16" x 8" x 8"
   // the building's tan brick (Massing C.brick and the facade drawings)
-  brickColors: ["#d8c49a", "#cfb98c", "#dcc9a1", "#c9b183", "#d3bd91", "#e0cfa8"],
+  brickColors: TAN_BRICK.colors,
   cmuColor: "#9e9c96",
   // clear glass (Collin 2026-11-26: no stained colors, keep the shards); same
   // tint as the Speakeasy glass roof, each shard a touch lighter or darker
