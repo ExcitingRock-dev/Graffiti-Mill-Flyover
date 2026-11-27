@@ -47,6 +47,9 @@ export const H = {
 
 // ---- Main block (5 stories + E6) ------------------------------------------
 export const MAIN = { x0: GX.g2, x1: GX.g9, z0: GZ.K, z1: GZ.B, top: H.auger };
+// the Auger roof slab: rests on the columns and runs out flush with their outer
+// faces on the south (x0) and west (z0) edges (Collin 2026-11-26)
+export const MAIN_ROOF_SLAB = 0.5;
 
 // ---- Roof over the north end (grid 7-9, above the Speakeasy) ---------------
 // Collin 2026-11-26 from 4/G160 NE axon + 1/G160 NW axon, measured on A402
@@ -273,11 +276,29 @@ const wingWestZ = (x: number) =>
   WING_WEST.z9 + ((x - GX.g9) * (WING_WEST.z13 - WING_WEST.z9)) / (GX.g13 - GX.g9);
 const WING_W_IN = unit([GX.g13, WING_WEST.z13], [GX.g9, WING_WEST.z9]); // NW corner -> grid 9
 const WING_W_OUT: XZ = [-WING_W_IN[1], WING_W_IN[0]]; // outward, toward -z
-// Tops. Main block: 177'-0" (Auger) where the column runs through the top band;
+// Tops. Main block: under the Auger roof slab (176'-6"), which caps them;
 // on the east face the columns stop under the top brick band at ~171'-5".
-const MAIN_TOP = H.auger;
+const MAIN_TOP = MAIN.top - MAIN_ROOF_SLAB; // under the roof slab
+// W53's north jamb (A401, west face) and the precast face: the column spans them
+const W53_NORTH_JAMB = 73.6;
+const GRID5_WEST_COLUMN = (W53_NORTH_JAMB + NEW_PRECAST.x[0]) / 2;
 const DECK_CURB_TOP = 72.0; // see SOUTH_DECK
-const EAST_TOP = 71.4;
+// the Level 6 South Deck's roof edge (Collin 2026-11-27): the grey band on
+// A403 / A402 at the deck line (170'-0" to 170'-7") is the roofline, the brick
+// above it a parapet. An 8" slab edge like the north roof edges, out flush with
+// the columns' outer faces; the columns under it stop at its underside (just
+// below the deck surface, so their tops stay hidden inside the deck slab).
+// Runs along the east face from the SE corner over the grid-4 column (x 57.2),
+// and around the corner along the south face to the grid-G column (z -43.1),
+// which keeps rising to the Auger roof.
+export const SOUTH_DECK_EDGE = {
+  y: [70.6 - 0.67, 70.6] as [number, number],
+  out: PIER.proud, // outer face, past the wall plane
+  in: 0.25, // inner face, inside the wall (hidden in the brick curb)
+  x1: 57.2 + 1, // east face: to the grid-4 column's north side
+  z0: -43.1 + 1, // south face: to the grid-G column's east side
+};
+const DECK_EDGE_UNDERSIDE = SOUTH_DECK_EDGE.y[0];
 // Wing: every face's columns stop at the roof (124'), brick infill above them
 // to the cap, mesh guard above that (Collin 2026-11-25: east matches north).
 const WING_BAND = 24;
@@ -296,23 +317,26 @@ export const NW_CORNER_COLUMN = {
 export const NORTH_DOOR_SHIFT = { z: [PRECAST_TOWER.z[1], -56.0] as [number, number], by: 0.4 };
 export const PIERS: Pier[] = [
   // ---- main block corners
-  // stops at the top of the Level 6 South Deck's brick curb (A402)
-  cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, DECK_CURB_TOP),
+  // stops under the Level 6 South Deck's roof edge (SOUTH_DECK_EDGE)
+  cornerPier("main SE corner", [GX.g2, GZ.B], [1, 0], [0, -1], 2, GRADE, DECK_EDGE_UNDERSIDE),
   cornerPier("main SW corner", [GX.g2, GZ.K], [1, 0], [0, 1], 2, GRADE, MAIN_TOP),
   // stops under the stone band (A402)
   cornerPier("main NE corner, above wing roof", [GX.g9, GZ.B], [-1, 0], [0, -1], 1.5, H.l3, EAST_EDGE_UNDERSIDE),
   // ---- main east (A403): grids 3, 4, 7
-  // grid 7 stops at the 170' roofline under the sheds (Collin 2026-11-26)
+  // grid 7 stops at the 170' roofline under the sheds (Collin 2026-11-26);
+  // grids 3 and 4 under the South Deck's roof edge (Collin 2026-11-27)
   ...[37.1, 57.2, 97.4].map((x) =>
-    wallPier(`main east x ${x}`, [x, GZ.B], [0, 1], 2, GRADE, x === 97.4 ? EAST_EDGE_UNDERSIDE : EAST_TOP),
+    wallPier(`main east x ${x}`, [x, GZ.B], [0, 1], 2, GRADE, x === 97.4 ? EAST_EDGE_UNDERSIDE : DECK_EDGE_UNDERSIDE),
   ),
-  // ---- main west (A401): grids 3, 4, and grid 5 beside the elevator enclosure
-  ...[37.35, 57.2, 75.7].map((x) =>
+  // ---- main west (A401): grids 3, 4, and grid 5 beside the elevator enclosure.
+  // The grid-5 column is not where A401 draws it: Google Earth shows it filling
+  // the gap from the New Precast Structure to W53's north jamb (Collin 2026-11-26)
+  ...[37.35, 57.2, GRID5_WEST_COLUMN].map((x) =>
     wallPier(`main west x ${x}`, [x, GZ.K], [0, -1], 2, GRADE, MAIN_TOP),
   ),
   // ---- main south (A402 left): near grids G and D/E
   ...[-43.1, -25.4].map((z) =>
-    wallPier(`main south z ${z}`, [GX.g2, z], [-1, 0], 2, GRADE, z > -42.4 ? DECK_CURB_TOP : MAIN_TOP),
+    wallPier(`main south z ${z}`, [GX.g2, z], [-1, 0], 2, GRADE, z > -42.4 ? DECK_EDGE_UNDERSIDE : MAIN_TOP),
   ),
   // ---- main north above the wing roof (A402 right)
   wallPier("main north z -26.1", [GX.g9, -26.1], [1, 0], 2, H.l3, NORTH_BAND.bottom),
@@ -379,11 +403,17 @@ export type Volume = {
   // an open bay in the a-side wall (axis z only): world z range, from the base
   // up to `top`, recessed `depth` into the volume
   opening?: { z: [number, number]; top: number; depth: number };
+  // single slope only: a band along the low eave in another finish, `frac` of
+  // the wall-to-wall run (the eave overhang goes with it)
+  roofLow?: { look: CorrugatedLook; frac: number };
 };
+// HB's roof: red over most of it, the lower part the pale weathered steel
+// (Google Earth, Collin 2026-11-26). The split is read off the photo: an estimate.
+const HB_ROOF_LOW = { look: "existing" as const, frac: 0.3 };
 // 8" eaves on every roof (4/G160; Collin 2026-11-26)
 export const EAVE = 8 / 12;
 const EAVES = { start: EAVE, end: EAVE, a: EAVE, b: EAVE };
-// the east wall line of sheds HA and HB (A402 south, 8" inside the eave tips)
+// the east wall line of sheds HA, HB and HC (A402 south, 8" inside the eave tips)
 const HEAD_HOUSE_EAST_WALL = -46.3;
 // HA and HB read as one building: HA gabled, HB a single slope that carries
 // HA's east slope on up to the west face. Same eave on the east wall, same
@@ -413,6 +443,8 @@ export const HEAD_HOUSE: Volume[] = [
     // south: ~192'-4" at grid K; A401 shows its high edge; Collin 2026-11-26)
     name: "HB grid 3-4 K-H",
     skin: "corrugated",
+    look: "rustRed",
+    roofLow: HB_ROOF_LOW,
     roof: "shed",
     // no eave at the south end, where it meets HA
     overhang: { ...EAVES, start: 0 },
@@ -429,9 +461,10 @@ export const HEAD_HOUSE: Volume[] = [
     // from the south elevation (A402)
     name: "HC tall shaft",
     skin: "corrugated",
+    look: "rustRed",
     overhang: EAVES,
     x: [46.1, 57.7],
-    z: [-62, -44.9],
+    z: [GZ.K, HEAD_HOUSE_EAST_WALL],
     base: 77,
     eave: 103.4,
     ridge: 107.2,
@@ -478,9 +511,11 @@ export const HEAD_HOUSE: Volume[] = [
     // its south wall stands on the Level 6 South Deck (E6), with an open bay
     // at its west end where a stair climbs from the deck (3/G160; A402 south:
     // z -41.8 to -19.0, head 185'-4"). Bay depth not drawn: 8' assumed.
+    // The bay's east side wall is gone: the bay runs on east to house the
+    // stair up from Level 5 too (DECK_HATCH; Collin 2026-11-27).
     name: "HG central gable",
     skin: "corrugated",
-    opening: { z: [-41.8, -19.0], top: 85.3, depth: 8 },
+    opening: { z: [-41.8, -9.0], top: 85.3, depth: 8 },
     // no eave where it meets the stair tower (east end) or the north sheds
     overhang: { start: 0, end: EAVE, a: EAVE, b: 0 },
     x: [55.3, 87.9],
@@ -809,20 +844,33 @@ export const STAIRS: Flight[] = [
   { from: [204.8, L2, -57.9], to: [204.8, H.l3, -30.2], width: 4.2 },
 ];
 // The Level 6 South Deck's two stairs (3/G160 SE axon, A402 south; Collin
-// 2026-11-26):
-// - in the central gable's open bay, a steep steel stair climbs west from the
-//   deck to about 180' at the bay's west side (A402: foot z -35.3, top z -41.6
-//   at 179'-11")
-// - in front of the gable's solid wall, a stair drops east through a hatch in
-//   the deck (A402: top at z -23); only its upper flight shows
+// 2026-11-26, revised 2026-11-27), both inside the central gable's open bay,
+// in one line along it (x 57.9):
+// - a steel stair climbs west from the bay floor to the bulkhead at the bay's
+//   west side, the 177' roof level (A402 drew it far too steep, to ~180')
+// - the stair up from Level 5 rises through a hatch in the bay floor, east of
+//   it (A402 drew it on the open deck in front of the gable: moved straight
+//   into the bay, Collin 2026-11-27); only its upper flight shows
+// normal stair pitch, rise / run (7.2" risers on ~11" treads)
+const DECK_STAIR_PITCH = 0.65;
+const DECK_STAIR_X = 57.9;
+const BAY_STAIR_TOP_Z = -41.8; // the bay's west side
 export const DECK_HATCH = {
-  x: [51.4, 55.2] as [number, number],
+  x: [56.0, 59.8] as [number, number],
   z: [-23.0, -10.0] as [number, number],
-  bottom: 56, // the shaft below the deck
+  bottom: 56, // the shaft below the bay floor
 };
 export const DECK_STAIRS: Flight[] = [
-  { from: [57.9, H.e6, -35.3], to: [57.9, 79.9, -41.6], width: 3.5 },
-  { from: [53.3, H.e6, DECK_HATCH.z[0]], to: [53.3, H.e6 - 12, DECK_HATCH.z[0] + 12.5], width: 3.4 },
+  {
+    from: [DECK_STAIR_X, H.e6, BAY_STAIR_TOP_Z + (H.auger - H.e6) / DECK_STAIR_PITCH],
+    to: [DECK_STAIR_X, H.auger, BAY_STAIR_TOP_Z],
+    width: 3.5,
+  },
+  {
+    from: [DECK_STAIR_X, H.e6, DECK_HATCH.z[0]],
+    to: [DECK_STAIR_X, H.e6 - DECK_STAIR_PITCH * 12.5, DECK_HATCH.z[0] + 12.5],
+    width: 3.4,
+  },
 ];
 // railTop: guard top elevation when it must meet another guard (default y + STAIR.guard)
 export type Landing = { name: string; y: number; poly: XZ[]; rail: XZ[]; railTop?: number };

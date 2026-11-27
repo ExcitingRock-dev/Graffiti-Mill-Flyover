@@ -24,6 +24,7 @@ import {
   EAVE,
   HG_ROOF_EXTENSION,
   SOUTH_DECK,
+  SOUTH_DECK_EDGE,
   MAIN,
   RINGS,
   LIGHT_WELL,
@@ -44,6 +45,7 @@ import {
   PIERS,
   WING_POLY,
   XZ,
+  MAIN_ROOF_SLAB,
 } from "./plan";
 
 // ---- Palette (matches tools/colorize.mjs) ----------------------------------
@@ -750,16 +752,34 @@ const insideSheds: Box3[] = HEAD_HOUSE.filter((v) => v.skin === "corrugated" && 
 const mainCorePieces = (): Box3[] => {
   const p = speakeasyPocket();
   return subtractAll(
-    [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - 0.5], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
+    [{ x: [MAIN.x0 + 0.3, MAIN.x1 - 0.3], y: [0, MAIN.top - MAIN_ROOF_SLAB], z: [MAIN.z0 + 0.3, MAIN.z1 - 0.3] }],
     [p, aboveTower, aboveDeck, deckHatchShaft, ...insideSheds],
   );
 };
-const mainRoofSlab = (): Box3[] =>
-  subtractAll([{ x: [MAIN.x0, MAIN.x1], y: [MAIN.top - 0.5, MAIN.top], z: [MAIN.z0, MAIN.z1] }], [
+const mainRoofSlab = (): Box3[] => {
+  const y: [number, number] = [MAIN.top - MAIN_ROOF_SLAB, MAIN.top];
+  // out to the column faces on the south and west edges; on the west it stops
+  // at the New Precast Structure, over the grid-5 column (Collin 2026-11-26)
+  const slab = subtractAll(
+    [
+      { x: [MAIN.x0 - PIER.proud, MAIN.x1], y, z: [MAIN.z0, MAIN.z1] },
+      { x: [MAIN.x0 - PIER.proud, NEW_PRECAST.x[0]], y, z: [MAIN.z0 - PIER.proud, MAIN.z0] },
+    ],
+    [
     aboveTower,
     aboveDeck,
     ...insideSheds,
-  ]);
+    ],
+  );
+  // every column that stops under the slab is fully capped by it, even where
+  // the slab itself stops short (the grid-G south column at the deck edge)
+  const caps: Box3[] = PIERS.filter((p) => p.top === y[0]).map((p) => ({
+    x: [Math.min(...p.poly.map((q) => q[0])), Math.max(...p.poly.map((q) => q[0]))],
+    y,
+    z: [Math.min(...p.poly.map((q) => q[1])), Math.max(...p.poly.map((q) => q[1]))],
+  }));
+  return [...slab, ...subtractAll(caps, slab)];
+};
 
 const eastRoofEdgePoly = (): XZ[] => {
   const e = EAST_ROOF_EDGE;
@@ -773,6 +793,20 @@ const eastRoofEdgePoly = (): XZ[] => {
     [c.x[0], c.z[0]],
     [c.x[0], e.z[0]],
     [e.x[0], e.z[0]],
+  ];
+};
+
+// the Level 6 South Deck's roof edge: one L-shaped slab along the east face
+// and around the SE corner along the south face, flush with the columns' faces
+const southDeckEdgePoly = (): XZ[] => {
+  const e = SOUTH_DECK_EDGE;
+  return [
+    [GX.g2 - e.out, e.z0],
+    [GX.g2 - e.out, GZ.B + e.out],
+    [e.x1, GZ.B + e.out],
+    [e.x1, GZ.B - e.in],
+    [GX.g2 + e.in, GZ.B - e.in],
+    [GX.g2 + e.in, e.z0],
   ];
 };
 
@@ -880,6 +914,19 @@ const SouthDeck: React.FC = () => {
           [x1, z1],
           [x0, z1],
         ]}
+        y0={d.y - 1.2}
+        y1={d.y}
+        color={C.deck}
+      />
+      {/* the deck runs on into the central gable's open bay; the stair up
+          from Level 5 comes through a hatch in the bay floor */}
+      <Prism
+        poly={[
+          [x1, bay.z[0]],
+          [x1 + bay.depth, bay.z[0]],
+          [x1 + bay.depth, bay.z[1]],
+          [x1, bay.z[1]],
+        ]}
         holes={[
           [
             [hx[0], hz[0]],
@@ -888,17 +935,16 @@ const SouthDeck: React.FC = () => {
             [hx[0], hz[1]],
           ],
         ]}
-        y0={d.y - 1.2}
-        y1={d.y}
+        y0={d.y - 0.3}
+        y1={d.y + 0.02}
         color={C.deck}
       />
-      {/* the deck runs on into the central gable's open bay */}
-      <BoxXYZ x={[x1, x1 + bay.depth]} y={[d.y - 0.3, d.y + 0.02]} z={bay.z} color={C.deck} />
-      {/* guard around the stair hatch on its open sides */}
+      {/* guard around the hatch, open only at the stair's top (z0) */}
       <Railing
         path={[
-          [hx[0], hz[1]],
           [hx[0], hz[0]],
+          [hx[0], hz[1]],
+          [hx[1], hz[1]],
           [hx[1], hz[0]],
         ]}
         y={d.y}
@@ -1182,6 +1228,7 @@ export const Massing: React.FC = () => (
     {/* one L-shaped solid (edge + corner cap) so no seams or doubled outlines show */}
     <Prism poly={eastRoofEdgePoly()} y0={EAST_ROOF_EDGE.y[0]} y1={EAST_ROOF_EDGE.y[1]} color={C.precast} />
     <Prism poly={westRoofEdgePoly()} y0={WEST_ROOF_EDGE.y[0]} y1={WEST_ROOF_EDGE.y[1]} color={C.precast} />
+    <Prism poly={southDeckEdgePoly()} y0={SOUTH_DECK_EDGE.y[0]} y1={SOUTH_DECK_EDGE.y[1]} color={C.precast} />
     <PrecastTowerTop />
     <SouthDeck />
     <ConcreteRoof />

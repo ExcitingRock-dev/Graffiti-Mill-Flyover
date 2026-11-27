@@ -13,7 +13,16 @@ export const CORRUGATED = {
   pitchFt: 0.25, // corrugation period (3")
   ribShade: 0.11, // light/dark swing across one corrugation
 };
-type Look = { base: [number, number, number]; weather: number; rustStreaks: number; rustPatches: number; seed: number };
+type Look = {
+  base: [number, number, number];
+  weather: number;
+  rustStreaks: number;
+  rustPatches: number;
+  seed: number;
+  rust?: string; // streak / patch rgb, default orange rust
+  fade?: number; // pale sun-faded clouds (0 = none)
+  cap?: string; // ridge cap color
+};
 // existing = the old steel, off-white and lightly rusted: the north sheds and
 // every head house volume and the stair tower top (Collin 2026-11-26);
 // newDark = new darker panel infill (Collin 2026-11-26), clean, no rust
@@ -23,6 +32,18 @@ export const CORRUGATED_LOOKS = {
   // newWhite = the round-window stair tower: new, clean white steel, walls and
   // roof (Collin 2026-11-26)
   newWhite: { base: [242, 242, 238], weather: 0.15, rustStreaks: 0, rustPatches: 0, seed: 13 },
+  // rustRed = the old red-painted steel on sheds HB and HC (Google Earth, Collin
+  // 2026-11-26): dusty red oxide, dark run-down streaks, sun-faded patches
+  rustRed: {
+    base: [122, 66, 56],
+    weather: 1.2,
+    rustStreaks: 60,
+    rustPatches: 14,
+    seed: 17,
+    rust: "62,30,22",
+    fade: 1,
+    cap: "#7a3e33",
+  },
 } satisfies Record<string, Look>;
 export type CorrugatedLook = keyof typeof CORRUGATED_LOOKS;
 
@@ -71,6 +92,8 @@ const getCorrugatedCanvas = (look: CorrugatedLook) => {
   };
   // faint weathering: soft grey clouds
   for (let i = 0; i < 40; i++) blob(rand() * N, rand() * N, 40 + rand() * 160, "120,115,105", (0.05 + rand() * 0.06) * c.weather);
+  for (let i = 0; i < 24 * (c.fade ?? 0); i++) blob(rand() * N, rand() * N, 60 + rand() * 180, "200,160,145", 0.08 + rand() * 0.1);
+  const rust = c.rust ?? "150,80,35";
   // rust: streaks run down the sheet from fasteners / laps, a few patches
   for (let i = 0; i < c.rustStreaks; i++) {
     const x = Math.floor((rand() * N) / period) * period + period * (0.3 + rand() * 0.4);
@@ -79,14 +102,14 @@ const getCorrugatedCanvas = (look: CorrugatedLook) => {
     const w = 2 + rand() * 5;
     const grad = g.createLinearGradient(0, y0, 0, y0 + len);
     const a = 0.12 + rand() * 0.25;
-    grad.addColorStop(0, `rgba(150,80,35,${a})`);
-    grad.addColorStop(1, "rgba(150,80,35,0)");
+    grad.addColorStop(0, `rgba(${rust},${a})`);
+    grad.addColorStop(1, `rgba(${rust},0)`);
     g.fillStyle = grad;
     g.fillRect(x - w / 2, y0, w, len);
     // wrap the streak so the tile stays seamless top to bottom
     if (y0 + len > N) g.fillRect(x - w / 2, y0 - N, w, len);
   }
-  for (let i = 0; i < c.rustPatches; i++) blob(rand() * N, rand() * N, 10 + rand() * 30, "140,70,30", 0.12 + rand() * 0.15);
+  for (let i = 0; i < c.rustPatches; i++) blob(rand() * N, rand() * N, 10 + rand() * 30, c.rust ?? "140,70,30", 0.12 + rand() * 0.15);
   corrugatedCanvas[look] = cv;
   return cv;
 };
@@ -182,7 +205,7 @@ const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v,
   const salt = [...v.name].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 0) % 1000;
 
   const parts = useMemo(() => {
-    const tex = (u: number, w: number, k: number) => corrugatedTexture(u, w, salt + k, look);
+    const tex = (u: number, w: number, k: number, lk: CorrugatedLook = look) => corrugatedTexture(u, w, salt + k, lk);
     // gable end, shape coords (-z, y): rotated +90 deg about y it lands on x
     const gable = (withVent: boolean) => {
       const outline: [number, number][] = mono
@@ -217,7 +240,7 @@ const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v,
       return { geo: new THREE.ShapeGeometry(s), tex: tex(1, 1, withVent ? 1 : 2) };
     };
     // one roof plane from (z0, y0) to (z1, y1), its underside on that line
-    const plane = (z0: number, y0: number, z1: number, y1: number, k: number) => {
+    const plane = (z0: number, y0: number, z1: number, y1: number, k: number, lk: CorrugatedLook = look) => {
       const w = Math.hypot(z1 - z0, y1 - y0);
       const ty = (y1 - y0) / w;
       const tz = (z1 - z0) / w;
@@ -226,7 +249,7 @@ const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v,
       if (n.y < 0) n = n.multiplyScalar(-1);
       const L = X1 + o.end - (X0 - os);
       const mid = new THREE.Vector3((X0 - os + X1 + o.end) / 2, (y0 + y1) / 2, (z0 + z1) / 2).addScaledVector(n, T / 2);
-      return { L, w, theta, mid, tex: tex(L, w, k) };
+      return { L, w, theta, mid, tex: tex(L, w, k, lk) };
     };
     // gable side: from the ridge down past the eave by the overhang
     const side = (zEave: number, over: number, k: number) => {
@@ -235,16 +258,24 @@ const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v,
       return plane(zm, R, zEave + dir * over, E - over * slope, k);
     };
     const monoSlope = (R - E) / (ZB - ZA);
+    // single slope: a band of another finish along the low eave (v.roofLow)
+    const low = v.roofLow;
+    const zS = low ? ZB - low.frac * (ZB - ZA) : ZB;
+    const yS = low ? E + low.frac * (R - E) : E;
+    const monoRoofs = low
+      ? [
+          plane(ZA - o.a, R + o.a * monoSlope, zS, yS, 3),
+          plane(zS, yS, ZB + o.b, E - o.b * monoSlope, 9, low.look),
+        ]
+      : [plane(ZA - o.a, R + o.a * monoSlope, ZB + o.b, E - o.b * monoSlope, 3)];
     return {
       north: gable(!!vent),
       south: gable(false),
       wallTexA: tex(X1 - X0, (mono ? R : E) - B, 5),
       wallTexB: tex(X1 - X0, E - B, 6),
-      roofs: mono
-        ? [plane(ZA - o.a, R + o.a * monoSlope, ZB + o.b, E - o.b * monoSlope, 3)]
-        : [side(ZA, o.a, 3), side(ZB, o.b, 4)],
+      roofs: mono ? monoRoofs : [side(ZA, o.a, 3), side(ZB, o.b, 4)],
     };
-  }, [X0, X1, ZA, ZB, zm, B, E, R, mono, o.end, os, o.a, o.b, T, V, vent, salt, look]);
+  }, [X0, X1, ZA, ZB, zm, B, E, R, mono, o.end, os, o.a, o.b, T, V, vent, salt, look, v.roofLow]);
 
   const D = NORTH_SHEDS.door;
   const louver = useMemo(() => {
@@ -342,7 +373,7 @@ const ShedX: React.FC<{ v: Volume; vent?: boolean; eastDoor?: boolean }> = ({ v,
       {mono ? null : (
         <mesh position={[(X0 - os + X1 + o.end) / 2, R + T, zm]}>
           <boxGeometry args={[X1 + o.end - X0 + os, 0.15, 0.6]} />
-          <meshLambertMaterial color={look === "existing" ? "#b9b4a8" : "#4a4946"} />
+          <meshLambertMaterial color={(CORRUGATED_LOOKS[look] as Look).cap ?? (look === "existing" ? "#b9b4a8" : "#4a4946")} />
         </mesh>
       )}
       {vent ? (

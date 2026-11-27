@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { Building } from "../src/flyover/Building";
 import { CUTS } from "../src/flyover/geometry";
 import type { CutKey, FacadeTextures } from "../src/flyover/useFacadeTextures";
+import { ExportGlb } from "./ExportGlb";
 import { FlyControls, VIEWS } from "./FlyControls";
 
 // Same look as the Remotion scene (Flyover.tsx)
@@ -84,7 +85,9 @@ const App: React.FC = () => {
           <meshBasicMaterial color={PAPER_GROUND} />
         </mesh>
         <gridHelper args={[1200, 60, GRID_LINE, GRID_LINE]} position={[110, -1.1, -30]} />
-        <Building textures={textures} />
+        <ExportGlb>
+          <Building textures={textures} />
+        </ExportGlb>
         <FlyControls onReadout={(t) => readout.current && (readout.current.textContent = t)} />
       </Canvas>
       <div ref={readout} style={{ ...panel, left: 16, bottom: 16, fontVariantNumeric: "tabular-nums" }} />

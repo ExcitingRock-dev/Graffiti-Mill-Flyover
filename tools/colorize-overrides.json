@@ -479,6 +479,44 @@
           1546,
           966
         ]
+      },
+      {
+        "why": "W11 moves south with the grid-5 column (Collin 2026-11-26, Google Earth): erase it where the drawing has it",
+        "op": "tile",
+        "src": [
+          1850,
+          700,
+          50,
+          100
+        ],
+        "poly": [
+          [
+            1744,
+            702
+          ],
+          [
+            1798,
+            702
+          ],
+          [
+            1798,
+            810
+          ],
+          [
+            1744,
+            810
+          ]
+        ]
+      },
+      {
+        "why": "W11 redrawn just south of the moved column, its north edge on W53's north jamb",
+        "op": "window",
+        "rect": [
+          1772,
+          706,
+          1818,
+          806
+        ]
       }
     ],
     "glassPolys": [
