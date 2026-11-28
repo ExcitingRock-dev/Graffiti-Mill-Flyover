@@ -23,6 +23,7 @@ import {
   CONCRETE_ROOF,
   DECKS,
   FRAME,
+  FRAME_L2_OPEN,
   Flight,
   FrameEdge,
   TOWER_OPEN,
@@ -517,6 +518,16 @@ const Frame: React.FC = () => {
           </group>
         );
       })}
+      {/* the open L2 bays under the ring platform: beams and the horizontal pier */}
+      {FRAME_L2_OPEN.beams.map((b, i) => (
+        <BoxXYZ key={"l2open" + i} x={b.x} y={b.y} z={b.z} color={C.frame} />
+      ))}
+      {/* the corner bay's floor at door 205, and its guard past the building */}
+      <BoxXYZ x={FRAME_L2_OPEN.floor.x} y={FRAME_L2_OPEN.floor.y} z={FRAME_L2_OPEN.floor.z} color={C.frame} />
+      <Railing path={FRAME_L2_OPEN.rail.path} y={FRAME_L2_OPEN.rail.y} h={FRAME_L2_OPEN.rail.h} />
+      {FRAME_L2_OPEN.shortRails.paths.map((p, i) => (
+        <Railing key={i} path={p} y={FRAME_L2_OPEN.shortRails.y} h={FRAME_L2_OPEN.shortRails.h} />
+      ))}
     </group>
   );
 };

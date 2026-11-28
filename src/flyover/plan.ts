@@ -758,6 +758,7 @@ const FRAME_RING_Y = 29;
 // grid 2), clear of the 3D brick (Collin 2026-11-28); everything on it
 // (rails, RINGS) moves with it
 const FRAME_COL = 1.1;
+const FRAME_L2_DECK_T = 2.2;
 const FRAME_BACK = GX.g2 - PIER.proud; // back face of the back columns / slabs
 const FRAME_SHIFT = FRAME_BACK - FRAME_COL / 2 - 15.5; // from the measured rows (< 0: south)
 export const FRAME = {
@@ -775,8 +776,10 @@ export const FRAME = {
     {
       name: "L2 deck",
       y: FRAME_L2_DECK_Y,
-      t: 2.2,
-      z: [-62, -1] as [number, number],
+      t: FRAME_L2_DECK_T,
+      // stops at the z -31 column: the two bays under the ring platform are
+      // open (FRAME_L2_OPEN)
+      z: [-62, -31] as [number, number],
       rails: ["front", "west", "east"] as FrameEdge[],
     },
     {
@@ -789,6 +792,60 @@ export const FRAME = {
   ],
   deckX: [FRAME_SHIFT, FRAME_BACK] as [number, number], // slabs run back to the columns' faces
 };
+// The two L2 bays under the ring platform (z -31 to -1) are hollowed out on
+// the new set (A402 axon / south elevation; Collin 2026-11-28: "remove the
+// slab from this area"). What's left is steel: deck-depth beams along the front
+// and back and across at z -16 and -1 (the slab's edge at z -31), and in the
+// corner bay (z -16 to -1) the drawn "horizontal pier" banding it: a second
+// band added under the deck-depth beams, ~2 1/2" below them (Collin
+// 2026-11-28), on all four sides; at the back (under door 205) only that band.
+// In that bay a 6" floor between the band's beams, flush with their tops
+// (door 205's sill), and past the building's SE corner (z -5.7) a black mesh
+// guard on the back band (Collin 2026-11-28); on the deck-depth beams of
+// the three open sides a short mesh guard, its top level with that one's.
+export const FRAME_L2_OPEN = (() => {
+  const s = FRAME_COL / 2;
+  const [fx, bx] = FRAME.x;
+  const top = FRAME_L2_DECK_Y;
+  const deck0 = top - FRAME_L2_DECK_T;
+  const gap = 2.5 / 12;
+  const pier: [number, number] = [deck0 - gap - 25 / 12, deck0 - gap]; // drawn 25" deep
+  type R = [number, number];
+  const beam = (x: R, y: R, z: R) => ({ x, y, z });
+  const front: R = [fx - s, fx + s];
+  const back: R = [bx - s, bx + s];
+  const across: R = [fx + s, bx - s];
+  const bayA: R = [-31 + s, -16 - s];
+  const bayB: R = [-16 + s, -1 - s];
+  return {
+    z: [-31, -1] as R,
+    pier,
+    floor: { x: across, y: [pier[1] - 0.5, pier[1]] as R, z: bayB },
+    rail: { path: [[bx, -5.7] as R, [bx, -1 - s] as R], y: pier[1], h: 3.5 },
+    // on the beams between the columns: z -16, the front, z -1
+    shortRails: {
+      paths: [
+        [[bx - s, -16] as R, [fx + s, -16] as R],
+        [[fx, -16 + s] as R, [fx, -1 - s] as R],
+        [[fx + s, -1] as R, [bx - s, -1] as R],
+      ],
+      y: top,
+      h: pier[1] + 3.5 - top,
+    },
+    beams: [
+      beam(front, [deck0, top], bayA),
+      beam(back, [deck0, top], bayA),
+      beam(front, [deck0, top], bayB),
+      beam(across, [deck0, top], [-16 - s, -16 + s]),
+      beam(across, [deck0, top], [-1 - s, -1 + s]),
+      // the band
+      beam(front, pier, bayB),
+      beam(back, pier, bayB),
+      beam(across, pier, [-16 - s, -16 + s]),
+      beam(across, pier, [-1 - s, -1 + s]),
+    ],
+  };
+})();
 // Two round "silo" rings on the ring platform (A140 circles at grid 1-2, C/D)
 // ---- East overhead-door bay, grid 3-4 -------------------------------------
 // Between the grid-3 and grid-4 piers on the east face the wall is rebuilt as
@@ -1164,21 +1221,96 @@ export const CORRUGATED_INFILL = {
   pitch: 2.67 / 12,
   rib: 1 / 12,
   depth: 0.75 / 12,
-  jTrim: { color: "#161616", face: 1.5 / 12, proud: 0.25 / 12 },
+  jTrim: { color: "#161616", edge: "#5a5a5a", face: 1.5 / 12, proud: 0.25 / 12 },
   windowReturn: 0.25,
+};
+// the black hollow metal door (doors 205 and 400; HMDoor in SouthInfill.tsx;
+// Collin 2026-11-28): 2" x 4 1/2" HM frame, solid 1 3/4" leaf, Schlage ND
+// cylindrical lock with the Rhodes lever, 626 (satin chrome). Lever sizes from
+// ND Rhodes 626 listings: ~4 7/8" long, ~2 15/16" off the door, ~3 3/16" rose.
+export const HM_DOOR = {
+  color: "#1b1b1b",
+  frame: { face: 2 / 12, depth: 4.5 / 12 },
+  leaf: { t: 1.75 / 12, set: 0.5 / 12, clear: 1 / 8 / 12, undercut: 0.005 }, // the leaf down to the sill (Collin 2026-11-28)
+  hinge: { h: 4.5 / 12, w: 0.6 / 12, at: [0.9, 3.6, 6.3] },
+  lock: {
+    finish: "#b9bab7", // 626 satin chrome
+    backset: 2.75 / 12,
+    y: 38 / 12, // lever centerline above the sill
+    rose: { d: 3.19 / 12, t: 0.45 / 12 },
+    neck: { d: 0.8 / 12 },
+    lever: { len: 4.875 / 12, proj: 2.94 / 12, t: 0.45 / 12, h: 0.75 / 12, ret: 0.6 / 12 },
+  },
+};
+// a typical aluminum storefront door (black anodized, in the SF system's
+// frame) with a glass lite: 4" stiles and top rail, 10" bottom rail, an
+// offset pull on the lock stile (Collin 2026-11-28: "a typical storefront
+// door with transom")
+export const STOREFRONT_DOOR = {
+  leafT: 1.75 / 12,
+  clear: 1 / 8 / 12,
+  stile: 4 / 12,
+  topRail: 4 / 12,
+  bottomRail: 10 / 12,
+  pull: { len: 18 / 12, d: 1 / 12, standoff: 2.5 / 12, y: 42 / 12, finish: "#b9bab7" },
 };
 const L4_OHD_W = 86.3; // in
 export const SOUTH_L4 = {
   ohd: { u: -56.19, w: L4_OHD_W, h: 129.6, y: [38.0, 38.0 + 129.6 / 12] as [number, number] },
   jamb: -56.19 + L4_OHD_W / 24, // the overhead door's east jamb
   col: -43.1 - 1, // the grid-G column's face
-  sillTop: 45.19, // under the corrugated infill = the HM door head
-  door: {
-    u: [-47.7, -43.1 - 1] as [number, number],
-    frame: 2 / 12,
-    color: "#1b1b1b",
-    lock: { side: "left" as const, y: 38.0 + 3.0, rose: 2.6 / 12, lever: 4.5 / 12, hardware: "#a7a5a0" },
-  },
+  // the stone sill fills one CMU course (Collin 2026-11-28): its top on the
+  // CMU course line 14.1 + 45 x 8" (SOUTH_CMU_TOP.bottom, CMU_BLOCK.h), the
+  // corrugated down to it beside door 400
+  sillTop: 14.1 + 45 * (8 / 12),
+  sillH: 8 / 12,
+  doorHead: 45.19, // the HM door's frame head
+  // door 400: hinged on the right (the elevation's swing marks)
+  door: { u: [-47.7, -43.1 - 1] as [number, number], hinge: "right" as const },
+};
+
+// A402, Level 2 behind the open corner bay of the steel frame (FRAME_L2_OPEN;
+// Collin 2026-11-28): door 205, a black HM door (HM_DOOR, hinged on the left
+// per the swing marks), its sill on the frame's lower band (under the deck
+// edge); around it black corrugated on a stone sill, from the frame's z -16
+// column to the SE corner column, 3D tan brick below and above. Measured on
+// 1/A402.
+// West of it, in the other open bay, storefront W19 sits on the frame's
+// deck-depth beam (its sill level with the beam's top, 114'-2", as drawn),
+// 3D tan brick above it and in a band from its east jamb, behind the z -16
+// frame column, to the corrugated (Collin 2026-11-28). One brick facade over
+// both bays, so its courses run through; from the column west of W19 (the
+// pier "main south z -25.4", its east face).
+// W19's head and the corrugated's line up (drawn 21.53 / 21.55), so the
+// brick over both ends on one line (Collin 2026-11-28)
+const W19_W = 92.5; // in
+const L2_HEAD = 21.55;
+export const SOUTH_L2 = {
+  storefront: { u: -20.035, w: W19_W, y0: FRAME_L2_DECK_Y, h: (L2_HEAD - FRAME_L2_DECK_Y) * 12 },
+  storefrontEast: -20.035 + W19_W / 24, // its east jamb
+  u: [-25.4 + 1, -6 - 2] as [number, number], // the column west of W19 to the SE corner column's face
+  y: [9.68, 24.4] as [number, number], // under the band to where the brick above starts
+  corrugated: { z: [-15.25, -6 - 2] as [number, number], y: [16.59, L2_HEAD] as [number, number] },
+  // its sill on the top of the band (Collin 2026-11-28)
+  door: { u: [-14.3, -10.74] as [number, number], y: [FRAME_L2_OPEN.pier[1], 19.0] as [number, number], hinge: "left" as const },
+};
+
+// A402 Level 1 under the two open bays (Collin 2026-11-28; 1/A100, 1/A402):
+// W17, then past the column a glazed overhead door running east behind the
+// frame's z -16 column, a brick pier, a storefront door with a transom
+// (hinged on the right per the swing marks), and brick to the SE corner
+// column. All 3D tan brick from the grid-G column (around W16 too) up to the bays'
+// beam (bay A) or the band (bay B), on the Level 2 brick's courses. Measured
+// on 1/A402.
+const L1_OPEN_OHD: [number, number] = [-23.48, -12.6];
+export const SOUTH_L1_OPEN = {
+  // from the grid-G column (W16 too; the gray drawn beside the z -31 frame
+  // column is an old pier, gone: Collin 2026-11-28)
+  u: [-43.1 + 1, -6 - 2] as [number, number], // the grid-G column's face to the SE corner column's
+  y: [GRADE, FRAME_L2_DECK_Y - FRAME_L2_DECK_T] as [number, number], // to under the bay A beam
+  pier: [-25.4 - 1, -25.4 + 1] as [number, number], // the concrete column (PIERS "main south z -25.4")
+  ohd: { u: (L1_OPEN_OHD[0] + L1_OPEN_OHD[1]) / 2, w: (L1_OPEN_OHD[1] - L1_OPEN_OHD[0]) * 12, h: 111 },
+  door: { u: [-11.93, -8.67] as [number, number], y: [0, 9.19] as [number, number], doorTop: 7.0, hinge: "right" as const },
 };
 
 // A402 grid K to G, Level 1 (Collin 2026-11-28; 1/A100): the glazed overhead
@@ -1284,7 +1416,7 @@ export const WINDOWS: WindowSpec[] = [
   // Level 4 glazed overhead door, grid K-G: runs down to the CMU sill (the
   // drawing's gray bottom panel is a glazed section too, Collin 2026-11-27)
   { tag: "OHD", wall: "S", u: SOUTH_L4.ohd.u, y0: SOUTH_L4.ohd.y[0], w: SOUTH_L4.ohd.w, h: SOUTH_L4.ohd.h, cols: eq(2), rows: eq(6), sys: "WW" },
-  { tag: "W19", wall: "S", u: -20.035, y0: 19.87, w: 92.5, h: 87.5, cols: [43.25, 43.25], rows: [83], sys: "SF" },
+  { tag: "W19", wall: "S", ...SOUTH_L2.storefront, cols: [43.25, 43.25], rows: [83], sys: "SF" }, // SOUTH_L2
   // Level 1 overhead door, grid K-G (SOUTH_L1)
   { tag: "OHD", wall: "S", u: SOUTH_L1.ohd.u, y0: SOUTH_L1.ohd.y[0], w: SOUTH_L1.ohd.w, h: SOUTH_L1.ohd.h, cols: eq(2), rows: eq(5), sys: "WW" },
   // W15 / W16 / W17: single lites, widths as drawn; W15 runs on to the grid-G
@@ -1292,6 +1424,8 @@ export const WINDOWS: WindowSpec[] = [
   { tag: "W15", wall: "S", u: SOUTH_L1.w15.u, y0: 2.44, w: SOUTH_L1.w15.w, h: 83.5, cols: [1], rows: [1], sys: "SF" },
   { tag: "W16", wall: "S", u: -39.375, y0: 2.44, w: 58.9, h: 83.5, cols: [1], rows: [1], sys: "SF" },
   { tag: "W17", wall: "S", u: -27.835, y0: 2.44, w: 42.4, h: 83.5, cols: [1], rows: [1], sys: "SF" },
+  // Level 1 overhead door under the open bays (SOUTH_L1_OPEN)
+  { tag: "OHD", wall: "S", u: SOUTH_L1_OPEN.ohd.u, y0: 0, w: SOUTH_L1_OPEN.ohd.w, h: SOUTH_L1_OPEN.ohd.h, cols: eq(3), rows: eq(5), sys: "WW" },
   // ---- stair tower, south face (the elevation tags WW10 / WW11 the other way
   // round from the frame sheets; built at the drawn sizes)
   { tag: "WW10", wall: "ST", u: -3.22, y0: 52.0, w: 48, h: 96, cols: [1], rows: [1], sys: "WW" },
@@ -1369,6 +1503,10 @@ export type BrickFacade = {
   openings?: { u: [number, number]; y: [number, number]; keep?: boolean }[];
   // laid in CMU_BLOCK instead of tan brick
   unit?: "cmu";
+  // where its brick grid starts (a course line, and the joint of an
+  // unshifted course), to carry another facade's courses on; default its
+  // own bottom-left corner
+  courseOrigin?: { u: number; y: number };
 };
 export const BRICK_FACADES: BrickFacade[] = [
   {
@@ -1442,8 +1580,9 @@ export const BRICK_FACADES: BrickFacade[] = [
     seed: 67,
     infill: [],
     openings: [
-      // under the ring platform (its slab and what's behind it): as drawn
-      { u: [FRAME.decks[1].z[0] - FRAME.colSize / 2, GZ.B - 2], y: [SOUTH_CMU_TOP.middle, FRAME_RING_Y], keep: true },
+      // behind the ring platform's slab: as drawn (3D brick below it, over
+      // W19 and the corrugated: Collin 2026-11-28)
+      { u: [FRAME.decks[1].z[0] - FRAME.colSize / 2, GZ.B - 2], y: [FRAME_RING_Y - FRAME.decks[1].t, FRAME_RING_Y], keep: true },
     ],
   },
   {
@@ -1460,8 +1599,8 @@ export const BRICK_FACADES: BrickFacade[] = [
     // the Level 4 corrugated infill, its sill and the HM door (SOUTH_L4)
     openings: [
       { u: [SOUTH_L4.jamb, SOUTH_L4.col], y: [SOUTH_L4.sillTop, SOUTH_L4.ohd.y[1]] },
-      { u: [SOUTH_L4.jamb, SOUTH_L4.door.u[0]], y: [SOUTH_L4.sillTop - STONE_SILL.h, SOUTH_L4.sillTop] },
-      { u: SOUTH_L4.door.u, y: [SOUTH_L4.ohd.y[0], SOUTH_L4.sillTop] },
+      { u: [SOUTH_L4.jamb, SOUTH_L4.door.u[0]], y: [SOUTH_L4.sillTop - SOUTH_L4.sillH, SOUTH_L4.sillTop] },
+      { u: SOUTH_L4.door.u, y: [SOUTH_L4.ohd.y[0], SOUTH_L4.doorHead] },
     ],
   },
   {
@@ -1477,6 +1616,47 @@ export const BRICK_FACADES: BrickFacade[] = [
     openings: [
       { u: [SOUTH_L1.jamb, SOUTH_L1.w15.u - SOUTH_L1.w15.w / 24], y: [SOUTH_L1.sillTop, SOUTH_L1.ohd.y[1]] },
       { u: [SOUTH_L1.jamb, SOUTH_L1.w15.u - SOUTH_L1.w15.w / 24], y: [SOUTH_L1.sillTop - STONE_SILL.h, SOUTH_L1.sillTop] },
+    ],
+  },
+  {
+    // A402 Level 2 behind the two open bays (SOUTH_L2): 3D tan brick around
+    // storefront W19 (a window of this facade) and door 205 with its
+    // corrugated infill and sill
+    name: "south, Level 2 behind the open bays",
+    // the facade above's courses carried down (no sliver course where they
+    // meet), the partial course at the heads (Collin 2026-11-28)
+    courseOrigin: { u: -43.1 + 1, y: SOUTH_CMU_TOP.middle },
+    wall: "S",
+    u: SOUTH_L2.u,
+    y: SOUTH_L2.y,
+    seed: 83,
+    infill: [],
+    openings: [
+      { u: SOUTH_L2.corrugated.z, y: SOUTH_L2.corrugated.y },
+      { u: SOUTH_L2.corrugated.z, y: [SOUTH_L2.corrugated.y[0] - STONE_SILL.h, SOUTH_L2.corrugated.y[0]] },
+      { u: SOUTH_L2.door.u, y: SOUTH_L2.door.y },
+      // under W19, behind the frame's beam: as drawn (Level 1's brick below)
+      { u: [SOUTH_L2.u[0], SOUTH_L2.storefrontEast], y: [SOUTH_L1_OPEN.y[1], SOUTH_L2.storefront.y0], keep: true },
+      // and below that, Level 1's brick
+      { u: [SOUTH_L2.u[0], SOUTH_L2.storefrontEast], y: [SOUTH_L2.y[0], SOUTH_L1_OPEN.y[1]] },
+    ],
+  },
+  {
+    // A402 Level 1 under the open bays (SOUTH_L1_OPEN): 3D tan brick around
+    // W17 and the overhead door (windows of this facade) and the storefront
+    // door, on the Level 2 brick's courses
+    name: "south, Level 1 under the open bays",
+    wall: "S",
+    u: SOUTH_L1_OPEN.u,
+    y: SOUTH_L1_OPEN.y,
+    seed: 97,
+    infill: [],
+    courseOrigin: { u: -43.1 + 1, y: SOUTH_CMU_TOP.middle },
+    openings: [
+      { u: SOUTH_L1_OPEN.pier, y: SOUTH_L1_OPEN.y },
+      { u: SOUTH_L1_OPEN.door.u, y: SOUTH_L1_OPEN.door.y },
+      // bay B above the band's bottom: the Level 2 brick
+      { u: [SOUTH_L2.storefrontEast, SOUTH_L1_OPEN.u[1]], y: [SOUTH_L2.y[0], SOUTH_L1_OPEN.y[1]] },
     ],
   },
   {

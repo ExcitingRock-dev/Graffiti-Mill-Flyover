@@ -90,6 +90,9 @@ export type TanBrickWallSpec = {
   bedDepth?: number;
   // the unit laid (default TAN_BRICK)
   unit?: MasonryUnit;
+  // where the brick grid starts: a course line, and a head joint of the
+  // unshifted courses (default the wall's bottom-left corner)
+  origin?: { u: number; y: number };
 };
 
 type Rect = { u: Range; y: Range };
@@ -118,10 +121,14 @@ export const tanBrickWallBoxes = (s: TanBrickWallSpec): Box[] => {
     s.plane === "z" ? { x: u, y, z: d, color } : { x: d, y, z: u, color };
   const boxes: Box[] = [];
   const unitDepth = back(B.depth);
-  for (let k = 0, y0 = s.y[0]; y0 < s.y[1] - 0.01; k++, y0 += B.h) {
-    const y1 = Math.min(s.y[1], y0 + B.h);
+  const o = s.origin ?? { u: s.u[0], y: s.y[0] };
+  // courses on the origin's grid, cut to the wall (partial ones at its edges)
+  for (let k = Math.floor((s.y[0] - o.y) / B.h + 1e-6); o.y + k * B.h < s.y[1] - 0.01; k++) {
+    const y0 = Math.max(s.y[0], o.y + k * B.h);
+    const y1 = Math.min(s.y[1], o.y + (k + 1) * B.h);
     if (y1 - y0 < B.joint * 2) continue;
-    for (let u = s.u[0] - (k % 2) * (B.w / 2); u < s.u[1]; u += B.w) {
+    const u00 = o.u - (((k % 2) + 2) % 2) * (B.w / 2);
+    for (let u = u00 - Math.ceil((u00 - s.u[0]) / B.w) * B.w; u < s.u[1]; u += B.w) {
       const a = Math.max(s.u[0], u);
       const b = Math.min(s.u[1], u + B.w);
       if (b - a < 0.12) continue;

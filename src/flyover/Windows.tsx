@@ -5,7 +5,7 @@ import { corrugatedTexture } from "./Sheds";
 import { Box, boxesGeometry } from "./TanBrick";
 import { worldUV } from "./uv";
 import { CMU_BLOCK, RAKED_W6, ROUND_CW6, ROUND_W22, TAN_BRICK, WINDOW_COLORS as COL, WINDOW_SYSTEMS, WINDOWS, WindowSpec } from "./plan";
-import { IN, WINDOW_WALLS, brickFacadeOf, mullionRanges, outline, outlineBox, rakedCorners, wallFrame, windowDepths } from "./windowGeometry";
+import { IN, WINDOW_WALLS, brickFacadeOf, jambsOnColumns, mullionRanges, outline, outlineBox, rakedCorners, wallFrame, windowDepths } from "./windowGeometry";
 
 // The windows from the shop drawings (WINDOWS in plan.ts, geometry in
 // windowGeometry.ts), as real 3D units: black anodized frames and mullions at their
@@ -78,8 +78,11 @@ const rectParts = (w: WindowSpec, p: Parts) => {
   const front = inBrick ? dep.face - TAN_BRICK.mortarSet - 0.01 : setting === "brick" ? dep.face - 0.01 : dep.face;
   const rd: Range = [dep.back, front];
   const rev = c(inCmu ? CMU_BLOCK.reveal : REVEAL[setting]);
-  box([a0 - rw, a0], [y0 - rw, y1 + rw], rd, rev);
-  box([a1, a1 + rw], [y0 - rw, y1 + rw], rd, rev);
+  // a jamb on a column has the column's side for its return (Collin
+  // 2026-11-28: the two overlapped at the jambs)
+  const [col0, col1] = jambsOnColumns(w);
+  if (!col0) box([a0 - rw, a0], [y0 - rw, y1 + rw], rd, rev);
+  if (!col1) box([a1, a1 + rw], [y0 - rw, y1 + rw], rd, rev);
   box([a0, a1], [y1, y1 + rw], rd, rev);
   // on a stone sill (BrickFacades.tsx) there is no wash or flashing
   if (inBrick && w.stoneSill) return;

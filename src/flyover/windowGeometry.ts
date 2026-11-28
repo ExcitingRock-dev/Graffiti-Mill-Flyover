@@ -243,6 +243,16 @@ export const outline = (w: WindowSpec): Outline => {
   if (o.kind !== "rect" || !f) return o;
   return { ...o, a: snapToColumns(w, o.a, f) };
 };
+// which of a window's jambs (local a0, a1) is a column's side, so it gets no
+// wall return of its own (it would sit inside the column, in its side's plane)
+export const jambsOnColumns = (w: WindowSpec): [boolean, boolean] => {
+  const o = outline(w);
+  if (o.kind !== "rect" || !brickFacadeRaw(w)) return [false, false];
+  const ax = uAxis(w);
+  const faces = wallColumns(w.wall).flat();
+  const on = (a: number) => faces.some((c) => Math.abs(ax.toU(a) - c) < 0.01);
+  return [on(o.a[0]), on(o.a[1])];
+};
 // bounding box of the outline in local (a, y)
 export const outlineBox = (o: Outline): { a: Range; y: Range } => {
   if (o.kind === "rect") return { a: o.a, y: o.y };
@@ -413,6 +423,7 @@ export const brickFacadeParts = (f: BrickFacade) => {
     holes,
     bedDepth,
     unit: f.unit === "cmu" ? CMU_BLOCK : undefined,
+    origin: f.courseOrigin,
   };
   return { brick, sills };
 };
