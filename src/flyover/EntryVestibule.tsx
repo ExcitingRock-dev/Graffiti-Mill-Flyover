@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import * as THREE from "three";
-import { ENTRY_HEAD, ENTRY_INNER, ENTRY_STOREFRONT, ENTRY_VESTIBULE, PIER } from "./plan";
+import { ENTRY_ROOF, ENTRY_HEAD, ENTRY_INNER, ENTRY_STOREFRONT, ENTRY_VESTIBULE, PIER } from "./plan";
 import { BoxXYZ, C } from "./Massing";
 
 // The glazed entry vestibule at the stair tower's south side (ENTRY_VESTIBULE,
@@ -131,6 +131,109 @@ const StorefrontRun: React.FC<{ zOut: number; x: Range; startPost: number; head:
   );
 };
 
+type RoofFrame = { len: number; pitch: number; cx: number; cy: number; cz: number; w: number };
+// The vestibule roof (ENTRY_ROOF): built in the slab's own frame (x across,
+// z down the slope, y up off the slab), except the eave fascia, which stands
+// plumb.
+const VestibuleRoof: React.FC<{ roof: RoofFrame }> = ({ roof }) => {
+  const v = ENTRY_VESTIBULE;
+  const R = ENTRY_ROOF;
+  const t = v.roof.t;
+  const { len, pitch, w } = roof;
+  const sin = Math.sin(pitch);
+  const cos = Math.cos(pitch);
+  const color = R.color;
+  const line = C.lineOnDark;
+  // local (y, z) -> world (y, z)
+  const toWorld = (y: number, z: number): [number, number] => [roof.cy + y * cos - z * sin, roof.cz + y * sin + z * cos];
+  // world z -> local z on the slab's underside
+  const localZ = (zw: number) => (zw - roof.cz + (t / 2) * sin) / cos;
+  const top = t / 2;
+  const ribTop = top + R.rib.h;
+  const soffitBot = -t / 2 - R.soffit;
+  // the eave fascia stands plumb, its back at the slab's top outer corner
+  const [yTopOut, zF] = toWorld(top, len / 2);
+  // the soffit runs on until it meets the fascia's back
+  const soffitEnd = len / 2 + (t + R.soffit) * Math.tan(pitch);
+  const [yFasciaBot] = toWorld(soffitBot, soffitEnd);
+  const rake = -w / 2; // south rake edge (local x)
+  // the rake fascia in world (z, y): from the building to the eave fascia's back
+  const atZ = (y: number, zw: number): ZY => {
+    const L = (zw - roof.cz - y * sin) / cos;
+    return [zw, toWorld(y, L)[0]];
+  };
+  const yRakeTop = ribTop + R.fascia.above;
+  const yRakeBot = soffitBot - R.fascia.drip;
+  const flip = ([y, z]: [number, number]): ZY => [z, y];
+  const rakeFascia: ZY[] = [
+    flip(toWorld(yRakeBot, -len / 2)),
+    atZ(yRakeBot, zF),
+    atZ(yRakeTop, zF),
+    flip(toWorld(yRakeTop, -len / 2)),
+  ];
+  const storeX = v.x[0] - roof.cx; // the south storefront's outer face, local x
+  // ribs: a trapezoid extruded down the slope
+  const rib = useMemo(() => {
+    const b = R.rib.base / 2;
+    const a = R.rib.top / 2;
+    const sh = new THREE.Shape([
+      new THREE.Vector2(-b, 0),
+      new THREE.Vector2(b, 0),
+      new THREE.Vector2(a, R.rib.h),
+      new THREE.Vector2(-a, R.rib.h),
+    ]);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false });
+    g.translate(0, top, -len / 2);
+    return g;
+  }, [R.rib, len, top]);
+  // the ribs' edges, drawn a touch lighter so the panels read from a distance
+  const ribEdges = useMemo(() => new THREE.EdgesGeometry(rib, 25), [rib]);
+  const ribXs = useMemo(() => {
+    const xs: number[] = [];
+    // from the tower end, so a full pan ends at the rake trim
+    for (let x = w / 2 - R.rib.every / 2; x > rake + R.rib.base / 2; x -= R.rib.every) xs.push(x);
+    return xs;
+  }, [w, rake, R.rib]);
+  return (
+    <group>
+      <group position={[roof.cx, roof.cy, roof.cz]} rotation={[pitch, 0, 0]}>
+        {/* the deck, under the panels */}
+        <BoxXYZ x={[rake, w / 2]} y={[-t / 2, top]} z={[-len / 2, len / 2]} color={color} lineColor={line} />
+        {ribXs.map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh geometry={rib}>
+              <meshLambertMaterial color={color} />
+            </mesh>
+            <lineSegments geometry={ribEdges}>
+              <lineBasicMaterial color={R.ribLine} />
+            </lineSegments>
+          </group>
+        ))}
+        {/* soffit under the eave overhang (outside the east storefront) */}
+        <BoxXYZ
+          x={[rake, w / 2]}
+          y={[soffitBot, -t / 2]}
+          z={[localZ(v.z[1]), soffitEnd]}
+          color={color}
+          lineColor={line}
+        />
+        {/* soffit under the rake overhang (outside the south storefront) */}
+        <BoxXYZ x={[rake, storeX]} y={[soffitBot, -t / 2]} z={[-len / 2, soffitEnd]} color={color} lineColor={line} />
+      </group>
+      {/* rake fascia, following the slope, dying into the eave fascia */}
+      <SouthPiece pts={rakeFascia} x={[roof.cx + rake - R.fascia.t, roof.cx + rake]} color={color} line={line} />
+      {/* eave fascia, plumb */}
+      <BoxXYZ
+        x={[roof.cx + rake - R.fascia.t, roof.cx + w / 2]}
+        y={[yFasciaBot - R.fascia.drip, yTopOut + R.rib.h + R.fascia.above]}
+        z={[zF, zF + R.fascia.t]}
+        color={color}
+        lineColor={line}
+      />
+    </group>
+  );
+};
+
 export const EntryVestibule: React.FC = () => {
   const v = ENTRY_VESTIBULE;
   const S = ENTRY_STOREFRONT;
@@ -226,16 +329,8 @@ export const EntryVestibule: React.FC = () => {
       {southGlass.map((p, i) => (
         <SouthPiece key={"sg" + i} pts={p} x={gxS} color={C.glass} opacity={0.75} />
       ))}
-      {/* canopy */}
-      <group position={[roof.cx, roof.cy, roof.cz]} rotation={[roof.pitch, 0, 0]}>
-        <BoxXYZ
-          x={[-roof.w / 2, roof.w / 2]}
-          y={[-v.roof.t / 2, v.roof.t / 2]}
-          z={[-roof.len / 2, roof.len / 2]}
-          color={C.metal}
-          lineColor={C.lineOnDark}
-        />
-      </group>
+      {/* canopy: Pro-Rib roof, fascia, soffits */}
+      <VestibuleRoof roof={roof} />
     </group>
   );
 };

@@ -213,6 +213,17 @@ export const ENTRY_STOREFRONT = {
   },
   hardware: "#a7a5a0", // brushed stainless
 };
+// The vestibule roof (Collin 2026-11-27): dark bronze Pro-Rib panels, 3D,
+// ribs running down the slope (3/4" ribs at 9" on center); a dark bronze
+// fascia on the eave (vertical) and on the south rake, dark bronze soffit
+// under the overhangs. The north end dies into the stair tower.
+export const ENTRY_ROOF = {
+  color: "#3a2e25", // dark bronze
+  ribLine: "#5e4e40", // rib edges, a little lighter
+  rib: { every: 9 / 12, h: 0.75 / 12, base: 2.5 / 12, top: 0.75 / 12 },
+  fascia: { t: 1 / 12, above: 1 / 12, drip: 1 / 12 }, // past the rib tops; below the soffit
+  soffit: 0.5 / 12,
+};
 // the vestibule roof slab's underside at z
 export const entryRoofUnder = (z: number) => {
   const r = ENTRY_VESTIBULE.roof;
@@ -742,9 +753,16 @@ export type FrameEdge = "front" | "west" | "east";
 // deck, and the z -31 column stops at the ring platform (Collin 2026-11-27).
 const FRAME_L2_DECK_Y = 14.17; // 114'-2" (2'-2" above Level 2)
 const FRAME_RING_Y = 29;
+// the whole frame stands off the building so its back columns and slab edges
+// land flush with the concrete columns' outer faces (PIER.proud in front of
+// grid 2), clear of the 3D brick (Collin 2026-11-28); everything on it
+// (rails, RINGS) moves with it
+const FRAME_COL = 1.1;
+const FRAME_BACK = GX.g2 - PIER.proud; // back face of the back columns / slabs
+const FRAME_SHIFT = FRAME_BACK - FRAME_COL / 2 - 15.5; // from the measured rows (< 0: south)
 export const FRAME = {
-  x: [0.6, 15.5] as [number, number], // column rows (front, back)
-  colSize: 1.1,
+  x: [0.6 + FRAME_SHIFT, 15.5 + FRAME_SHIFT] as [number, number], // column rows (front, back)
+  colSize: FRAME_COL,
   cols: [
     { z: -62, top: FRAME_L2_DECK_Y }, // grid K, up to the L2 deck
     { z: -47, top: FRAME_L2_DECK_Y },
@@ -769,7 +787,7 @@ export const FRAME = {
       rails: [] as FrameEdge[],
     },
   ],
-  deckX: [0, GX.g2] as [number, number], // slabs run back to the grid-2 face
+  deckX: [FRAME_SHIFT, FRAME_BACK] as [number, number], // slabs run back to the columns' faces
 };
 // Two round "silo" rings on the ring platform (A140 circles at grid 1-2, C/D)
 // ---- East overhead-door bay, grid 3-4 -------------------------------------
@@ -817,8 +835,8 @@ export const EAST_DOOR_BAY = {
   ] as DoorBayOpening[],
 };
 export const RINGS = [
-  { x: 7.9, z: -23.4, r: 6.9, y: 29, h: 4 },
-  { x: 7.9, z: -8.0, r: 6.9, y: 29, h: 4 },
+  { x: 7.9 + FRAME_SHIFT, z: -23.4, r: 6.9, y: 29, h: 4 },
+  { x: 7.9 + FRAME_SHIFT, z: -8.0, r: 6.9, y: 29, h: 4 },
 ];
 
 // ---- North wing roof (A140, NE/NW axons) ----------------------------------
@@ -1132,6 +1150,49 @@ export const RAKED_W6 = { angle: 28.61, along: 180.375, end: 26.625 };
 
 const eq = (n: number) => Array.from({ length: n }, () => 1);
 const TREEBOX_SILL = H.l2 + 4; // frame bottom (2/A102, frame sheets)
+// A402 grid K to G, Level 4 (Collin 2026-11-28): an existing full-width
+// opening, modified. The glazed overhead door at the corner column (OHD in
+// WINDOWS); beside it to the grid-G column, corrugated metal infill whose head
+// lines up with the door head, on a stone sill, and under it a black hollow
+// metal door (2" frame, solid leaf, cylindrical lock, hinged on the right as
+// the elevation's swing marks show)
+// corrugated metal infill panels (SouthInfill.tsx): black J trim capturing
+// the panel's edges; where a window's wall return (3", REVEAL_W in
+// Windows.tsx) reaches into the opening the trim covers it too
+export const CORRUGATED_INFILL = {
+  color: "#2b2926",
+  pitch: 2.67 / 12,
+  rib: 1 / 12,
+  depth: 0.75 / 12,
+  jTrim: { color: "#161616", face: 1.5 / 12, proud: 0.25 / 12 },
+  windowReturn: 0.25,
+};
+const L4_OHD_W = 86.3; // in
+export const SOUTH_L4 = {
+  ohd: { u: -56.19, w: L4_OHD_W, h: 129.6, y: [38.0, 38.0 + 129.6 / 12] as [number, number] },
+  jamb: -56.19 + L4_OHD_W / 24, // the overhead door's east jamb
+  col: -43.1 - 1, // the grid-G column's face
+  sillTop: 45.19, // under the corrugated infill = the HM door head
+  door: {
+    u: [-47.7, -43.1 - 1] as [number, number],
+    frame: 2 / 12,
+    color: "#1b1b1b",
+    lock: { side: "left" as const, y: 38.0 + 3.0, rose: 2.6 / 12, lever: 4.5 / 12, hardware: "#a7a5a0" },
+  },
+};
+
+// A402 grid K to G, Level 1 (Collin 2026-11-28; 1/A100): the glazed overhead
+// door out to the SW corner column, the same corrugated infill (on a stone
+// sill) between it and W15, and W15 one lite out to the grid-G column (the
+// intermediate mullion behind the ring platform's column removed)
+const L1_OHD_W = 81; // in, as drawn (-59.56 to -52.81); it snaps to the column
+export const SOUTH_L1 = {
+  ohd: { u: -56.185, w: L1_OHD_W, h: 112, y: [0, 112 / 12] as [number, number] },
+  jamb: -56.185 + L1_OHD_W / 24, // the overhead door's east jamb
+  w15: { u: -47.405, w: 81.7 }, // drawn -50.81 to the grid-G column
+  sillTop: 4.3, // where the drawing's brick starts under the gray panel
+};
+
 export const WINDOWS: WindowSpec[] = [
   // ---- true east, main face (sheet 202)
   // grid 2-3
@@ -1215,13 +1276,20 @@ export const WINDOWS: WindowSpec[] = [
   { tag: "WW9", wall: "S", u: -30.7, y0: 54.3, w: 114, h: 94, cols: [53.625, 53.625], rows: [88], sys: "WW" },
   { tag: "WW7", wall: "S", u: -30.7, y0: 41.96, w: 114, h: 84, cols: [53.625, 53.625], rows: [25.125, 50.625], sys: "WW" },
   { tag: "WW6", wall: "S", u: -15.85, y0: 32.83, w: 192, h: 50, cols: eq(5), rows: [44], sys: "WW" },
-  // WW5 / W18: the frame sheets say ~193" wide, the elevation draws ~148"
-  // between the corner and the column; built as drawn
-  { tag: "WW5", wall: "S", u: -53.885, y0: 27.9, w: 148, h: 90, cols: eq(13), rows: eq(6), sys: "WW" },
-  { tag: "W18", wall: "S", u: -53.885, y0: 16.53, w: 148, h: 59.5, cols: eq(13), rows: eq(4), sys: "SF" },
+  // WW5 / W18: the elevation draws ~148" and a door / lite beside them; they
+  // run column face to column face, ~191" (Collin 2026-11-27; the frame
+  // sheets say ~193")
+  { tag: "WW5", wall: "S", u: -52.05, y0: 27.9, w: 191, h: 90, cols: eq(17), rows: eq(6), sys: "WW" },
+  { tag: "W18", wall: "S", u: -52.05, y0: 16.53, w: 191, h: 59.5, cols: eq(17), rows: eq(4), sys: "SF" },
+  // Level 4 glazed overhead door, grid K-G: runs down to the CMU sill (the
+  // drawing's gray bottom panel is a glazed section too, Collin 2026-11-27)
+  { tag: "OHD", wall: "S", u: SOUTH_L4.ohd.u, y0: SOUTH_L4.ohd.y[0], w: SOUTH_L4.ohd.w, h: SOUTH_L4.ohd.h, cols: eq(2), rows: eq(6), sys: "WW" },
   { tag: "W19", wall: "S", u: -20.035, y0: 19.87, w: 92.5, h: 87.5, cols: [43.25, 43.25], rows: [83], sys: "SF" },
-  // W15 / W16 / W17: single lites, widths as drawn
-  { tag: "W15", wall: "S", u: -48.975, y0: 2.44, w: 42.6, h: 83.5, cols: [1], rows: [1], sys: "SF" },
+  // Level 1 overhead door, grid K-G (SOUTH_L1)
+  { tag: "OHD", wall: "S", u: SOUTH_L1.ohd.u, y0: SOUTH_L1.ohd.y[0], w: SOUTH_L1.ohd.w, h: SOUTH_L1.ohd.h, cols: eq(2), rows: eq(5), sys: "WW" },
+  // W15 / W16 / W17: single lites, widths as drawn; W15 runs on to the grid-G
+  // column, one piece of glass (SOUTH_L1)
+  { tag: "W15", wall: "S", u: SOUTH_L1.w15.u, y0: 2.44, w: SOUTH_L1.w15.w, h: 83.5, cols: [1], rows: [1], sys: "SF" },
   { tag: "W16", wall: "S", u: -39.375, y0: 2.44, w: 58.9, h: 83.5, cols: [1], rows: [1], sys: "SF" },
   { tag: "W17", wall: "S", u: -27.835, y0: 2.44, w: 42.4, h: 83.5, cols: [1], rows: [1], sys: "SF" },
   // ---- stair tower, south face (the elevation tags WW10 / WW11 the other way
@@ -1268,7 +1336,22 @@ export const DECK_PARAPET = {
   cap: 0.3, // rowlock course: bricks on edge across the wall
   seed: 53,
 };
-export type BrickInfill = { u: number; y0: number; w: number; h: number }; // like a WindowSpec (in)
+// A402: where the CMU below the brick stops (measured on the sheet); it
+// starts on the Level 2 band (its top, `bottom`)
+export const SOUTH_CMU_TOP = { west: 52.1, middle: 24.4, bottom: 14.1 };
+// 3D CMU (Collin 2026-11-27): 8x16 block in running bond, a gray / tan a shade
+// lighter than the tan brick, its face flush with the brick
+export const CMU_BLOCK = {
+  w: 16 / 12,
+  h: 8 / 12,
+  depth: 0.33,
+  joint: 0.035,
+  colors: ["#ddd5c4", "#d6cebc", "#e2dbcc", "#d2c9b6", "#dad2c0", "#e5dfd1"],
+  mortar: "#cbc4b4",
+  mortarSet: 0.03,
+  reveal: "#d4ccba", // a window's wall returns in the CMU
+};
+export type BrickInfill ={ u: number; y0: number; w: number; h: number }; // like a WindowSpec (in)
 export type BrickFacade = {
   name: string;
   wall: "E" | "W" | "S" | "N";
@@ -1284,6 +1367,8 @@ export type BrickFacade = {
   // something solid stands in front of the facade. `keep`: the drawing is not
   // cleared there (its sheet also draws what stands in front, e.g. the tower)
   openings?: { u: [number, number]; y: [number, number]; keep?: boolean }[];
+  // laid in CMU_BLOCK instead of tan brick
+  unit?: "cmu";
 };
 export const BRICK_FACADES: BrickFacade[] = [
   {
@@ -1333,6 +1418,77 @@ export const BRICK_FACADES: BrickFacade[] = [
     y: [GRADE, DECK_EDGE_UNDERSIDE],
     seed: 43,
     infill: [],
+  },
+  {
+    // A402 grid K to G (true south face, Collin's "west" end): above the CMU
+    // to the roof slab, between the SW corner column and the grid-G column
+    // (Collin 2026-11-27; the CMU below is its own facade)
+    name: "south, grid K to G, above the CMU",
+    wall: "S",
+    u: [GZ.K + 2, -43.1 - 1], // SW corner column's face to the grid-G column's face
+    y: [SOUTH_CMU_TOP.west, MAIN_TOP],
+    seed: 61,
+    infill: [],
+  },
+  {
+    // A402 grid G to the SE corner: up to the South Deck's roof edge, the
+    // drawn gray band under it included (Collin 2026-11-27: "the arch left
+    // that out"); down to the CMU, and to the ring platform where it stands
+    // in front. The CMU below is its own facade.
+    name: "south, grid G to the SE corner, to the deck edge",
+    wall: "S",
+    u: [-43.1 + 1, GZ.B - 2], // grid-G column's face to the SE corner column's face
+    y: [SOUTH_CMU_TOP.middle, DECK_EDGE_UNDERSIDE],
+    seed: 67,
+    infill: [],
+    openings: [
+      // under the ring platform (its slab and what's behind it): as drawn
+      { u: [FRAME.decks[1].z[0] - FRAME.colSize / 2, GZ.B - 2], y: [SOUTH_CMU_TOP.middle, FRAME_RING_Y], keep: true },
+    ],
+  },
+  {
+    // A402 grid K to G: the CMU, Level 2 band to under the brick (Collin
+    // 2026-11-27: 3D, flush with the brick). WW5 / W18 / the overhead door end
+    // on the columns; the Level 4 infill beside the door is SOUTH_L4.
+    name: "south, grid K to G, CMU",
+    wall: "S",
+    u: [GZ.K + 2, -43.1 - 1],
+    y: [SOUTH_CMU_TOP.bottom, SOUTH_CMU_TOP.west],
+    seed: 71,
+    infill: [],
+    unit: "cmu",
+    // the Level 4 corrugated infill, its sill and the HM door (SOUTH_L4)
+    openings: [
+      { u: [SOUTH_L4.jamb, SOUTH_L4.col], y: [SOUTH_L4.sillTop, SOUTH_L4.ohd.y[1]] },
+      { u: [SOUTH_L4.jamb, SOUTH_L4.door.u[0]], y: [SOUTH_L4.sillTop - STONE_SILL.h, SOUTH_L4.sillTop] },
+      { u: SOUTH_L4.door.u, y: [SOUTH_L4.ohd.y[0], SOUTH_L4.sillTop] },
+    ],
+  },
+  {
+    // A402 grid K to G, Level 1 (Collin 2026-11-28): 3D tan brick from grade
+    // to the Level 2 band, around the overhead door, the corrugated infill and
+    // W15 (SOUTH_L1)
+    name: "south, grid K to G, Level 1",
+    wall: "S",
+    u: [GZ.K + 2, -43.1 - 1],
+    y: [GRADE, 12.1],
+    seed: 79,
+    infill: [],
+    openings: [
+      { u: [SOUTH_L1.jamb, SOUTH_L1.w15.u - SOUTH_L1.w15.w / 24], y: [SOUTH_L1.sillTop, SOUTH_L1.ohd.y[1]] },
+      { u: [SOUTH_L1.jamb, SOUTH_L1.w15.u - SOUTH_L1.w15.w / 24], y: [SOUTH_L1.sillTop - STONE_SILL.h, SOUTH_L1.sillTop] },
+    ],
+  },
+  {
+    // A402 grid G to the next column east: the CMU under the brick, behind
+    // the ring platform too (its 3D column stands in front)
+    name: "south, grid G east, CMU",
+    wall: "S",
+    u: [-43.1 + 1, -25.4 - 1],
+    y: [SOUTH_CMU_TOP.bottom, SOUTH_CMU_TOP.middle],
+    seed: 73,
+    infill: [],
+    unit: "cmu",
   },
   {
     // inside the entry vestibule: over the inner storefront, up to the

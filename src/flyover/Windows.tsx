@@ -4,7 +4,7 @@ import { concreteTexture } from "./concrete";
 import { corrugatedTexture } from "./Sheds";
 import { Box, boxesGeometry } from "./TanBrick";
 import { worldUV } from "./uv";
-import { RAKED_W6, ROUND_CW6, ROUND_W22, TAN_BRICK, WINDOW_COLORS as COL, WINDOW_SYSTEMS, WINDOWS, WindowSpec } from "./plan";
+import { CMU_BLOCK, RAKED_W6, ROUND_CW6, ROUND_W22, TAN_BRICK, WINDOW_COLORS as COL, WINDOW_SYSTEMS, WINDOWS, WindowSpec } from "./plan";
 import { IN, WINDOW_WALLS, brickFacadeOf, mullionRanges, outline, outlineBox, rakedCorners, wallFrame, windowDepths } from "./windowGeometry";
 
 // The windows from the shop drawings (WINDOWS in plan.ts, geometry in
@@ -73,9 +73,11 @@ const rectParts = (w: WindowSpec, p: Parts) => {
   // in a 3D brick facade the returns stay behind the brick and its mortar
   // joints, so the brick ends show at the jambs
   const inBrick = brickFacadeOf(w) !== null;
+  // in a 3D CMU facade the returns are block gray (Collin 2026-11-28)
+  const inCmu = brickFacadeOf(w)?.unit === "cmu";
   const front = inBrick ? dep.face - TAN_BRICK.mortarSet - 0.01 : setting === "brick" ? dep.face - 0.01 : dep.face;
   const rd: Range = [dep.back, front];
-  const rev = c(REVEAL[setting]);
+  const rev = c(inCmu ? CMU_BLOCK.reveal : REVEAL[setting]);
   box([a0 - rw, a0], [y0 - rw, y1 + rw], rd, rev);
   box([a1, a1 + rw], [y0 - rw, y1 + rw], rd, rev);
   box([a0, a1], [y1, y1 + rw], rd, rev);

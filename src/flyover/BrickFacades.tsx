@@ -12,6 +12,7 @@ import {
 import { Box, TanBrickWall, TanBrickWallSpec, boxesGeometry, rngFrom, tanBrickShade } from "./TanBrick";
 import { DRAWING_PROUD, brickFacadeParts } from "./windowGeometry";
 import { BoxXYZ } from "./Massing";
+import { SouthInfill } from "./SouthInfill";
 
 // The 3D tan brick facades (BRICK_FACADES in plan.ts): the brick in place of
 // the drawing, open at every window, and the stone sills. The drawing behind
@@ -107,5 +108,6 @@ export const BrickFacades: React.FC = () => (
       <Facade key={f.name} f={f} />
     ))}
     <DeckParapet />
+    <SouthInfill />
   </group>
 );

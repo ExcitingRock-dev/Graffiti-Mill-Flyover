@@ -54,9 +54,20 @@ export const boxesGeometry = (boxes: Box[]) => {
   return g;
 };
 
-// a shade for one brick, picked from the tan palette
-export const tanBrickShade = (rand: () => number) => {
-  const c = TAN_BRICK.colors[Math.floor(rand() * TAN_BRICK.colors.length)];
+// a masonry unit and its bond: TAN_BRICK, or CMU_BLOCK (plan.ts)
+export type MasonryUnit = {
+  w: number;
+  h: number;
+  depth: number;
+  joint: number;
+  colors: string[];
+  mortar: string;
+  mortarSet: number;
+};
+
+// a shade for one brick, picked from the tan palette (or the unit's)
+export const tanBrickShade = (rand: () => number, unit: MasonryUnit = TAN_BRICK) => {
+  const c = unit.colors[Math.floor(rand() * unit.colors.length)];
   return new THREE.Color(c).multiplyScalar(0.88 + rand() * 0.2);
 };
 
@@ -77,6 +88,8 @@ export type TanBrickWallSpec = {
   // how far behind the face the mortar bed reaches (default a little past
   // the bricks' backs)
   bedDepth?: number;
+  // the unit laid (default TAN_BRICK)
+  unit?: MasonryUnit;
 };
 
 type Rect = { u: Range; y: Range };
@@ -98,7 +111,7 @@ const cutHoles = (r: Rect, holes: Rect[]) =>
   );
 
 export const tanBrickWallBoxes = (s: TanBrickWallSpec): Box[] => {
-  const B = TAN_BRICK;
+  const B = s.unit ?? TAN_BRICK;
   const rand = rngFrom(s.seed);
   const back = (d: number): Range => (s.out > 0 ? [s.face - d, s.face] : [s.face, s.face + d]);
   const place = (u: Range, y: Range, d: Range, color: THREE.Color): Box =>
@@ -112,7 +125,7 @@ export const tanBrickWallBoxes = (s: TanBrickWallSpec): Box[] => {
       const a = Math.max(s.u[0], u);
       const b = Math.min(s.u[1], u + B.w);
       if (b - a < 0.12) continue;
-      const color = tanBrickShade(rand);
+      const color = tanBrickShade(rand, B);
       for (const p of cutHoles({ u: [a + B.joint / 2, b - B.joint / 2], y: [y0 + B.joint / 2, y1 - B.joint / 2] }, s.holes ?? []))
         boxes.push(place(p.u, p.y, unitDepth, color));
     }

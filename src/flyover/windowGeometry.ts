@@ -14,6 +14,7 @@
 import type { TanBrickWallSpec } from "./TanBrick";
 import {
   BRICK_FACADES,
+  CMU_BLOCK,
   DRAWING_ERASES,
   BrickFacade,
   BrickInfill,
@@ -174,7 +175,12 @@ const brickFacadeRaw = (w: WindowSpec): BrickFacade | null => {
   const o = rawOutline(w);
   if (o.kind !== "rect") return null;
   return (
-    BRICK_FACADES.find((f) => f.wall === w.wall && overlaps(uSpan(w, o.a), f.u) && overlaps(o.y, f.y)) ?? null
+    // a window belongs to the facade its middle is in (one just poking into
+    // the bottom of a facade, e.g. under the ring platform, does not)
+    BRICK_FACADES.find((f) => {
+      const ym = (o.y[0] + o.y[1]) / 2;
+      return f.wall === w.wall && overlaps(uSpan(w, o.a), f.u) && ym > f.y[0] && ym < f.y[1];
+    }) ?? null
   );
 };
 export const brickFacadeOf = brickFacadeRaw;
@@ -397,7 +403,17 @@ export const brickFacadeParts = (f: BrickFacade) => {
   // the mortar bed runs back into the core (its face 0.3 behind the wall
   // line), so the core's edges (window pockets) never show through the brick
   const bedDepth = WINDOW_WALLS[f.wall].face + 0.35;
-  const brick: TanBrickWallSpec = { plane: P.plane, face: P.face, out: P.out, u: f.u, y: f.y, seed: f.seed, holes, bedDepth };
+  const brick: TanBrickWallSpec = {
+    plane: P.plane,
+    face: P.face,
+    out: P.out,
+    u: f.u,
+    y: f.y,
+    seed: f.seed,
+    holes,
+    bedDepth,
+    unit: f.unit === "cmu" ? CMU_BLOCK : undefined,
+  };
   return { brick, sills };
 };
 // where each facade clears its drawing, in sheet pixels
