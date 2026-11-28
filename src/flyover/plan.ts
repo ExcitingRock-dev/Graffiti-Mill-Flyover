@@ -128,6 +128,7 @@ export const NORTH_WEST_WALL = {
   z: PRECAST_TOWER.z[1], // wall face; outward is -z
   brickTop: 61.5,
   sill: { top: 62.0, proud: 2 / 12, color: "#d3c29a" }, // typical: 2" past the wall
+  brickSeed: 23, // 3D tan brick below the sill, between the columns (Collin 2026-11-27)
   head: 67.0,
   infillRecess: 1 / 12,
   columns: [
@@ -181,12 +182,61 @@ export const TOWER_OPEN = {
 
 // Glazed entry vestibule at the tower's south side, grid 4 -> tower (A100
 // level 1, 403, 3/G160). Storefront to ~9'-6", sloped metal canopy roof.
+// x[0] / z[1]: the storefront's outer faces (south run, east run); the south
+// run starts on the grid-4 column's face, the east run ends on the tower.
 export const ENTRY_VESTIBULE = {
-  x: [GX.g4, 68.7] as [number, number],
+  x: [GX.g4, 69.2] as [number, number],
   z: [GZ.B, 0.7] as [number, number],
-  glassTop: 9.5,
-  roof: { x: [56.6, 69.2] as [number, number], zOut: 1.6, high: 12.3, low: 10.2 },
-  mullionEvery: 4,
+  roof: { x: [56.6, 69.2] as [number, number], zOut: 1.6, high: 12.3, low: 10.2, t: 0.5 },
+};
+// The vestibule's storefront (Collin 2026-11-27): OBE 3000 XT framing, 2"
+// face by 4 1/2" deep, glass center-set. The corner is a 4 1/2" square post.
+// East run: a lite, the door in the middle, a lite; the head runs under the
+// roof's low edge. South run: one mullion in the middle; above the head line
+// the framing follows the roof's slope up to the building (glazed triangle).
+// Door: medium stile, 10" bottom rail, hinged on the right seen from outside,
+// swinging out (RHR).
+export const ENTRY_STOREFRONT = {
+  face: 2 / 12,
+  depth: 4.5 / 12,
+  glass: 1 / 12, // 1" insulated glass
+  door: {
+    w: 3.0, // 3'-0" leaf
+    h: 7.0, // 7'-0" leaf
+    clear: 3 / 16 / 12, // hinge + latch clearance, each side of the leaf
+    thick: 1.75 / 12,
+    stile: 3.5 / 12, // medium stile
+    topRail: 3.5 / 12,
+    bottomRail: 10 / 12,
+    hinges: [0.9, 3.6, 6.3], // butt hinge heights above the floor
+    pull: { y: [3.0, 4.5] as [number, number], d: 1 / 12, standoff: 2.5 / 12 },
+  },
+  hardware: "#a7a5a0", // brushed stainless
+};
+// the vestibule roof slab's underside at z
+export const entryRoofUnder = (z: number) => {
+  const r = ENTRY_VESTIBULE.roof;
+  const run = r.zOut - ENTRY_VESTIBULE.z[0];
+  const drop = r.high - r.low;
+  return r.high - ((z - ENTRY_VESTIBULE.z[0]) * drop) / run - r.t / 2 / Math.cos(Math.atan2(drop, run));
+};
+// the storefront's head (east run): tight under the roof at the frame's inner face
+export const ENTRY_HEAD = entryRoofUnder(ENTRY_VESTIBULE.z[1] - ENTRY_STOREFRONT.depth);
+// The inner storefront in the building's shell wall, right behind the
+// vestibule (Collin 2026-11-27): the same 3000 XT framing from the grid-4
+// column's face to the tower, a lite, the same door (behind the outer one), a
+// lite; its head level with the outer head, 3D brick above to the roof.
+// z: the frame's outer face, a little behind the brick face.
+export const ENTRY_INNER = {
+  z: GZ.B,
+  x: [GX.g4 + 1.1, TOWER.x0] as [number, number],
+  head: ENTRY_HEAD,
+};
+// the opening it fills, cut out of the main core
+export const ENTRY_INNER_CUT = {
+  x: ENTRY_INNER.x,
+  y: [0, ENTRY_HEAD] as [number, number],
+  z: [GZ.B - 1.5, GZ.B + 0.2] as [number, number],
 };
 
 // ---- North wing: bent / oblique east wall (A100, A140) ----------------------
@@ -233,7 +283,10 @@ export const WING_POLY: XZ[] = [
 // (2026-11-25): "these columns exist all over the building". Each one is
 // measured on the 040 elevations (A401 west, A402 south + north, A403 east) as
 // an unhatched vertical strip; top = where that strip meets the brick band.
-export const PIER = { proud: 0.3, depth: 1 };
+// Each column is as deep as it is wide (the floor plans; Collin 2026-11-27):
+// `proud` past the wall line, the rest behind it, so a window ending on a
+// column shows only gray column at its jamb.
+export const PIER = { proud: 0.3 };
 export type Pier = { name: string; y0: number; top: number; poly: XZ[] };
 const GRADE = -1.2;
 const unit = (a: XZ, b: XZ): XZ => {
@@ -252,7 +305,7 @@ const wallPier = (name: string, c: XZ, out: XZ, w: number, y0: number, top: numb
     name,
     y0,
     top,
-    poly: [pt(-h, PIER.proud), pt(h, PIER.proud), pt(h, -PIER.depth), pt(-h, -PIER.depth)],
+    poly: [pt(-h, PIER.proud), pt(h, PIER.proud), pt(h, PIER.proud - w), pt(-h, PIER.proud - w)],
   };
 };
 // a column wrapping a convex corner `v`; uA / uB run along the two walls away from it
@@ -323,6 +376,9 @@ export const PIERS: Pier[] = [
   cornerPier("main SW corner", [GX.g2, GZ.K], [1, 0], [0, 1], 2, GRADE, MAIN_TOP),
   // stops under the stone band (A402)
   cornerPier("main NE corner, above wing roof", [GX.g9, GZ.B], [-1, 0], [0, -1], 1.5, H.l3, EAST_EDGE_UNDERSIDE),
+  // below the wing roof the same column carries on down the east face to the
+  // ground, same width and face as above (Collin 2026-11-27)
+  wallPier("main NE corner, below wing roof", [GX.g9 - 0.6, GZ.B], [0, 1], 1.8, GRADE, H.l3),
   // ---- main east (A403): grids 3, 4, 7
   // grid 7 stops at the 170' roofline under the sheds (Collin 2026-11-26);
   // grids 3 and 4 under the South Deck's roof edge (Collin 2026-11-27)
@@ -1031,6 +1087,7 @@ export type WindowSpec = {
   sys: WindowSystem;
   shape?: "rect" | "round" | "raked";
   nis?: boolean; // "not in scope" on the shop drawings: built as measured
+  stoneSill?: boolean; // a 3D stone sill under it (STONE_SILL), in a 3D brick facade
 };
 
 // framing systems (frame sheets): sightline, depth, perimeter border (in)
@@ -1084,22 +1141,22 @@ export const WINDOWS: WindowSpec[] = [
   { tag: "W23", wall: "E", u: 27.0, y0: 14.37, w: 213.5, h: 85.5, cols: [65.75, 74, 65.75], rows: [21.5, 57.5], sys: "SF" },
   { tag: "W23", wall: "E", u: 27.0, y0: 1.99, w: 213.5, h: 85.5, cols: [65.75, 74, 65.75], rows: [21.5, 57.5], sys: "SF" },
   // grid 4-5
-  { tag: "WW19", wall: "E", u: 63.66, y0: 44.12, w: 138, h: 58, cols: [46.5, 36, 46.5], rows: [52], sys: "WW" },
-  { tag: "WW15", wall: "E", u: 63.66, y0: 30.78, w: 138, h: 56, cols: [46.5, 36, 46.5], rows: [50], sys: "WW" },
-  { tag: "W28", wall: "E", u: 63.66, y0: 16.87, w: 137.5, h: 55.5, cols: [46.75, 36, 46.75], rows: [51], sys: "SF" },
+  { tag: "WW19", wall: "E", u: 63.66, y0: 44.12, w: 138, h: 58, cols: [46.5, 36, 46.5], rows: [52], sys: "WW", stoneSill: true },
+  { tag: "WW15", wall: "E", u: 63.66, y0: 30.78, w: 138, h: 56, cols: [46.5, 36, 46.5], rows: [50], sys: "WW", stoneSill: true },
+  { tag: "W28", wall: "E", u: 63.66, y0: 16.87, w: 137.5, h: 55.5, cols: [46.75, 36, 46.75], rows: [51], sys: "SF", stoneSill: true },
   // grid 6-7
   { tag: "CW4", wall: "E", u: 92.27, y0: 54.37, w: 107, h: 155, cols: [49.75, 49.75], rows: [60.5, 87], sys: "CW" },
   // WW22 / WW18: the elevation draws one row, the frame sheets two rows and
   // 101" / 104" tall; the head stays where drawn (49.57), the frame runs down
   { tag: "WW22", wall: "E", u: 92.27, y0: 49.57 - 101 / 12, w: 108, h: 101, cols: [50.625, 50.625], rows: [60.875, 31.875], sys: "WW" },
   { tag: "WW16", wall: "E", u: 92.3, y0: 30.8, w: 108, h: 56, cols: eq(7), rows: eq(4), sys: "WW" },
-  { tag: "W24", wall: "E", u: 92.31, y0: 4.62, w: 107.5, h: 54.5, cols: [50.75, 50.75], rows: [50], sys: "SF" },
+  { tag: "W24", wall: "E", u: 92.31, y0: 4.62, w: 107.5, h: 54.5, cols: [50.75, 50.75], rows: [50], sys: "SF", stoneSill: true },
   // grid 7-9
   { tag: "CW5", wall: "E", u: 107.7, y0: 54.37, w: 218, h: 155, cols: [67, 74, 67], rows: [60.5, 87], sys: "CW" },
   { tag: "WW18", wall: "E", u: 107.7, y0: 49.57 - 104 / 12, w: 214, h: 104, cols: [65.5, 74, 65.5], rows: [63.875, 31.875], sys: "WW" },
-  { tag: "WW17", wall: "E", u: 107.67, y0: 30.8, w: 219, h: 56, cols: eq(15), rows: [10.875, 10.75, 10.75, 10.875], sys: "WW" },
-  { tag: "W25", wall: "E", u: 107.7, y0: 16.87, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF" },
-  { tag: "W25", wall: "E", u: 107.7, y0: 4.62, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF" },
+  { tag: "WW17", wall: "E", u: 107.67, y0: 30.8, w: 219, h: 56, cols: eq(15), rows: [10.875, 10.75, 10.75, 10.875], sys: "WW", stoneSill: true },
+  { tag: "W25", wall: "E", u: 107.7, y0: 16.87, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF", stoneSill: true },
+  { tag: "W25", wall: "E", u: 107.7, y0: 4.62, w: 218.5, h: 54.5, cols: [68.25, 74, 68.25], rows: [50], sys: "SF", stoneSill: true },
   // wing, grid 9-10 (its straight part, on grid B)
   { tag: "W29", wall: "E", u: 128.585, y0: 14.37, w: 143.5, h: 91.5, cols: [36.75, 62, 36.75], rows: [87], sys: "SF" },
   // ---- true east, wing oblique wall
@@ -1186,4 +1243,149 @@ export const WINDOWS: WindowSpec[] = [
   { tag: "W20", wall: "NW", u: -33.945, y0: 4.01, w: 137.5, h: 71.5, cols: [36, 57.5, 36], rows: [67], sys: "SF" },
   { tag: "W20", wall: "NW", u: -15.945, y0: 4.01, w: 137.5, h: 71.5, cols: [36, 57.5, 36], rows: [67], sys: "SF" },
   { tag: "W21", wall: "NW", u: -15.945, y0: 14.35, w: 137.5, h: 91.5, cols: [36, 57.5, 36], rows: [87], sys: "SF" },
+];
+
+// ---- 3D tan brick facades (Collin 2026-11-27) ------------------------------
+// Where the drawing's brick becomes real 3D tan brick (TAN_BRICK): the drawing
+// is cleared inside `u` x `y` (useFacadeTextures.ts) and the brick laid there,
+// stopping at every window opening on the wall. Windows with `stoneSill` sit on
+// a stone sill; the others (openings heightened by cutting the wall below,
+// sills and all) keep the metal flashing. `infill`: old openings bricked up,
+// the stone sill left in place under the new brick.
+export const STONE_SILL = {
+  h: 0.5, // 6" tall, its top under the window frame
+  proud: 2 / 12, // 2" past the brick face
+  lug: 4 / 12, // runs 4" into the brick past each jamb
+  color: "#d3c29a",
+};
+// A403 grid 4 to the stair tower: a plain gray band across the brick, left
+// as drawn for now (Collin 2026-11-27: "leave that for now")
+export const EAST_GRAY_BAND = { y: [66.96, 70.0] as [number, number] };
+// The Level 6 South Deck's parapet (its curb, SOUTH_DECK) in 3D tan brick:
+// face brick outside and inside (the deck side), a rowlock cap on top
+// (Collin 2026-11-27)
+export const DECK_PARAPET = {
+  cap: 0.3, // rowlock course: bricks on edge across the wall
+  seed: 53,
+};
+export type BrickInfill = { u: number; y0: number; w: number; h: number }; // like a WindowSpec (in)
+export type BrickFacade = {
+  name: string;
+  wall: "E" | "W" | "S" | "N";
+  u: [number, number]; // along the wall (the wall's elevation coordinate)
+  y: [number, number];
+  seed: number;
+  infill: BrickInfill[];
+  // walls standing out of the facade (at u) that openings stop `brick` ft
+  // short of, keeping a strip of brick; a stone sill under an opening that
+  // stops at such a strip ends at that jamb
+  stops?: { u: number; brick: number }[];
+  // other openings in the brick (no window, no sill): doors, and where
+  // something solid stands in front of the facade. `keep`: the drawing is not
+  // cleared there (its sheet also draws what stands in front, e.g. the tower)
+  openings?: { u: [number, number]; y: [number, number]; keep?: boolean }[];
+};
+export const BRICK_FACADES: BrickFacade[] = [
+  {
+    // A403 grids 6-9, Levels 1-3: from the stair tower to the NE corner column
+    // up to the underside of the roof edge slab (Collin 2026-11-27); the
+    // windows above Level 3 sit in it with no stone sill
+    name: "east, grid 6-9, Level 1 to the roof",
+    wall: "E",
+    u: [TOWER.x1, GX.g9],
+    y: [GRADE, EAST_EDGE_UNDERSIDE],
+    seed: 31,
+    // the Level 2 window left of grid 7 is removed (W24's size, W25's height)
+    infill: [{ u: 92.31, y0: 16.87, w: 107.5, h: 54.5 }],
+    // half a brick showing beside the openings at the tower, top to bottom,
+    // as on the tower's other side (Collin 2026-11-27)
+    stops: [{ u: TOWER.x1, brick: TAN_BRICK.w / 2 }],
+  },
+  {
+    // A403 grid 4 to the stair tower, above the entry vestibule's roof to
+    // Level 4, and on through the tower's open level (behind its columns) to
+    // the tower's far side (Collin 2026-11-27): half a brick beside the
+    // windows at the tower, the stone sills ending at the jambs on that side
+    // and up to the gray band (Collin 2026-11-27)
+    name: "east, grid 4 through the tower's open level, up to the gray band",
+    wall: "E",
+    u: [GX.g4 + 1.1, TOWER.x1], // grid-4 column's east face to the tower's far side
+    y: [ENTRY_VESTIBULE.roof.high, EAST_GRAY_BAND.y[0]],
+    seed: 37,
+    infill: [],
+    stops: [{ u: TOWER.x0, brick: TAN_BRICK.w / 2 }], // half a brick showing beside the windows
+    openings: [
+      // the tower body below its open level
+      { u: [TOWER.x0, TOWER.x1], y: [ENTRY_VESTIBULE.roof.high, TOWER_OPEN.y0], keep: true },
+      // the door from the building onto the open level
+      { u: TOWER_OPEN.door.x, y: [TOWER_OPEN.y0, TOWER_OPEN.y0 + TOWER_OPEN.door.h] },
+      // the tower's upper body, Level 4 up (its siding stands in front)
+      { u: [TOWER.x0, TOWER.x1], y: [TOWER_OPEN.y1, EAST_GRAY_BAND.y[0]], keep: true },
+    ],
+  },
+  {
+    // A403 grids 2-3, Level 1 to the South Deck's roof edge (Collin
+    // 2026-11-27): the five windows end on the columns both sides (the
+    // columns' sides are the jambs), no stone sills
+    name: "east, grid 2-3, Level 1 to the deck edge",
+    wall: "E",
+    u: [GX.g2 + 2, GX.g3 - 1], // SE corner column's face to the grid-3 column's face
+    y: [GRADE, DECK_EDGE_UNDERSIDE],
+    seed: 43,
+    infill: [],
+  },
+  {
+    // inside the entry vestibule: over the inner storefront, up to the
+    // vestibule roof where the brick above starts (Collin 2026-11-27)
+    name: "east, inside the entry vestibule, over the inner storefront",
+    wall: "E",
+    u: ENTRY_INNER.x,
+    y: [ENTRY_INNER.head, ENTRY_VESTIBULE.roof.high],
+    seed: 59,
+    infill: [],
+  },
+  {
+    // above the gray band to the 177' roof, grid 4 to the tower; over the
+    // grid-4 column too, which stops under the South Deck's roof edge
+    // (Collin 2026-11-27)
+    name: "east, grid 4 to the tower, above the gray band",
+    wall: "E",
+    u: [GX.g4 - 0.9, TOWER.x0], // grid-4 column's west face to the tower
+    y: [EAST_GRAY_BAND.y[1], H.auger],
+    seed: 41,
+    infill: [],
+  },
+];
+
+// Drawn windows to take out of a drawing (sheet coordinates: u along the
+// sheet, as the windows' u; y in ft above Level 1)
+// `fill`: paint the area this color instead of clearing it (full drawings
+// only, not the windows-only tower / precast cuts)
+export type DrawingErase = {
+  name: string;
+  sheet: "east" | "west" | "south" | "north";
+  u: [number, number];
+  y: [number, number];
+  fill?: string;
+};
+export const DRAWING_ERASES: DrawingErase[] = [
+  // the strip window the south sheet draws above the entry vestibule's roof,
+  // where it lands on the stair tower's south side: not there (Collin 2026-11-27)
+  { name: "tower south, above the vestibule roof", sheet: "south", u: [GZ.B + 0.05, 0.4], y: [9.5, 12.5] },
+  // and the sidelite it draws there below the roof: doesn't exist (Collin 2026-11-27)
+  { name: "tower south, inside the vestibule", sheet: "south", u: [GZ.B + 0.05, -2.5], y: [GRADE, 9.5] },
+  // the vestibule drawn on the building's wall behind it: now the 3D inner
+  // storefront (ENTRY_INNER)
+  { name: "east, inner storefront", sheet: "east", u: ENTRY_INNER.x, y: [GRADE, ENTRY_INNER.head] },
+  // the corner line both sheets draw down the stair tower's west edge, where it
+  // meets the building: it showed as a black line beside the 3D brick
+  // (Collin 2026-11-27); only siding there, no windows
+  { name: "tower north, corner line at the building", sheet: "north", u: [GZ.B + 0.05, GZ.B + 0.55], y: [GRADE, TOWER.eave] },
+  { name: "tower south, corner line at the building", sheet: "south", u: [GZ.B + 0.05, GZ.B + 0.55], y: [GRADE, TOWER.eave] },
+  // the stair tower's corner line drawn across the end of the gray band:
+  // painted the band's gray (Collin 2026-11-27)
+  { name: "gray band, tower corner line", sheet: "east", u: [68.8, TOWER.x0 + 0.05], y: EAST_GRAY_BAND.y, fill: "rgb(190,189,184)" },
+  // the Level 6 South Deck's parapet, now 3D brick (DECK_PARAPET)
+  { name: "deck parapet, east face", sheet: "east", u: [GX.g2 - 0.2, SOUTH_DECK.x[1]], y: [SOUTH_DECK_EDGE.y[1], DECK_CURB_TOP] },
+  { name: "deck parapet, south face", sheet: "south", u: [SOUTH_DECK.z[0], GZ.B + 0.2], y: [SOUTH_DECK_EDGE.y[1], DECK_CURB_TOP] },
 ];

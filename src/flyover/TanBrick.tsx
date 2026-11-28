@@ -74,6 +74,9 @@ export type TanBrickWallSpec = {
   seed: number;
   // openings (u, y) the brick stops at
   holes?: { u: Range; y: Range }[];
+  // how far behind the face the mortar bed reaches (default a little past
+  // the bricks' backs)
+  bedDepth?: number;
 };
 
 type Rect = { u: Range; y: Range };
@@ -115,7 +118,8 @@ export const tanBrickWallBoxes = (s: TanBrickWallSpec): Box[] => {
     }
   }
   // mortar bed: from just behind the brick faces to a little past their backs
-  const m = s.out > 0 ? [s.face - B.depth - 0.1, s.face - B.mortarSet] : [s.face + B.mortarSet, s.face + B.depth + 0.1];
+  const bed = s.bedDepth ?? B.depth + 0.1;
+  const m = s.out > 0 ? [s.face - bed, s.face - B.mortarSet] : [s.face + B.mortarSet, s.face + bed];
   for (const p of cutHoles({ u: s.u, y: s.y }, s.holes ?? []))
     boxes.push(place(p.u, p.y, m as Range, new THREE.Color(B.mortar)));
   return boxes;

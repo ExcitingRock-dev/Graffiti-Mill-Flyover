@@ -5,8 +5,10 @@ import { concreteTexture } from "./concrete";
 import { TanBrickWall, TanBrickWallSpec } from "./TanBrick";
 import { SpeakeasyWall } from "./SpeakeasyWall";
 import { EastDoorBay, EAST_DOOR_BAY_CUT } from "./EastDoorBay";
-import { MAIN_CORE_POCKETS, PRECAST_POCKETS, TOWER_POCKETS } from "./windowGeometry";
+import { DRAWING_PROUD, MAIN_CORE_POCKETS, PRECAST_POCKETS, TOWER_POCKETS } from "./windowGeometry";
 import { Windows } from "./Windows";
+import { BrickFacades } from "./BrickFacades";
+import { EntryVestibule } from "./EntryVestibule";
 import { worldUV } from "./uv";
 import {
   EAST_ROOF_EDGE,
@@ -21,7 +23,6 @@ import {
   CONCRETE_ROOF,
   DECKS,
   FRAME,
-  ENTRY_VESTIBULE,
   Flight,
   FrameEdge,
   TOWER_OPEN,
@@ -52,6 +53,7 @@ import {
   WING_POLY,
   XZ,
   MAIN_ROOF_SLAB,
+  ENTRY_INNER_CUT,
 } from "./plan";
 
 // ---- Palette (matches tools/colorize.mjs) ----------------------------------
@@ -90,7 +92,7 @@ const Solid: React.FC<{
   color: string;
   position?: [number, number, number];
   rotation?: [number, number, number];
-  lineColor?: string;
+  lineColor?: string; // "none": no outline
   opacity?: number;
 }> = ({ geometry, color, position, rotation, lineColor, opacity }) => (
   <group position={position} rotation={rotation}>
@@ -102,7 +104,7 @@ const Solid: React.FC<{
         side={THREE.DoubleSide}
       />
     </mesh>
-    <Outline geometry={geometry} color={lineColor} />
+    {lineColor !== "none" && <Outline geometry={geometry} color={lineColor} />}
   </group>
 );
 
@@ -111,7 +113,7 @@ export const BoxXYZ: React.FC<{
   y: [number, number];
   z: [number, number];
   color: string;
-  lineColor?: string;
+  lineColor?: string; // "none": no outline
   opacity?: number;
 }> = ({ x, y, z, color, lineColor, opacity }) => {
   const geo = useMemo(
@@ -572,16 +574,19 @@ const TowerOpenLevel: React.FC = () => {
         color={C.metal}
         lineColor={C.lineOnDark}
       />
-      {/* corner columns */}
+      {/* corner columns; the back pair stands on the 3D brick's face
+          (z0 + DRAWING_PROUD; BRICK_FACADES), not into it (Collin 2026-11-27) */}
       {[x0 + c, x1 - c].flatMap((x) =>
-        [z0 + 0.4 + c, z1 - c].map((z) => (
+        [z0 + DRAWING_PROUD + c, z1 - c].map((z) => (
           <BoxXYZ
             key={`${x}${z}`}
             x={[x - c, x + c]}
             y={[o.y0, yb]}
             z={[z - c, z + c]}
             color={C.metal}
-            lineColor={C.lineOnDark}
+            // no outline on the back pair: their edges lie in the brick face
+            // and show through the joints as a dashed line (Collin 2026-11-27)
+            lineColor={z < z1 / 2 ? "none" : C.lineOnDark}
           />
         )),
       )}
@@ -590,17 +595,12 @@ const TowerOpenLevel: React.FC = () => {
       <Member from={[x1 - c, o.y0 + 0.5, z1 - c]} to={[x0 + c, yb, z1 - c]} />
       <Member from={[x0 + c, o.y0 + 0.5, z1 - c]} to={[x0 + c, yb, z0 + 0.4]} />
       <Member from={[x1 - c, o.y0 + 0.5, z1 - c]} to={[x1 - c, yb, z0 + 0.4]} />
-      {/* back wall: building face with the door in */}
-      <BoxXYZ
-        x={[x0, x1]}
-        y={[o.y0, yb]}
-        z={[z0 + 0.25, z0 + 0.45]} // in front of the east drawing (at +0.15)
-        color={C.brick}
-      />
+      {/* back wall: the building's 3D brick (BRICK_FACADES), the door set in
+          its opening */}
       <BoxXYZ
         x={o.door.x}
         y={[o.y0, o.y0 + o.door.h]}
-        z={[z0 + 0.45, z0 + 0.6]}
+        z={[z0 - 0.1, z0 + 0.05]}
         color={C.metal}
         lineColor={C.lineOnDark}
       />
@@ -615,85 +615,6 @@ const TowerOpenLevel: React.FC = () => {
         y={o.y0}
         h={o.guard}
       />
-    </group>
-  );
-};
-
-// Glazed entry vestibule with a sloped metal canopy (south side of the tower)
-const EntryVestibule: React.FC = () => {
-  const v = ENTRY_VESTIBULE;
-  const [x0, x1] = v.x;
-  const [z0, z1] = v.z;
-  const t = 0.35; // mullion size
-  const posts: [number, number][] = [];
-  const along = (a: number, b: number) => {
-    const n = Math.max(1, Math.round((b - a) / v.mullionEvery));
-    return Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
-  };
-  for (const x of along(x0, x1)) posts.push([x, z1]); // east face
-  for (const z of along(z0, z1)) posts.push([x0, z]); // south face
-  const roof = useMemo(() => {
-    // sloped canopy: high at the building face (z0), low at the outer edge
-    const [rx0, rx1] = v.roof.x;
-    const zOut = v.roof.zOut;
-    const run = zOut - z0;
-    const drop = v.roof.high - v.roof.low;
-    return {
-      len: Math.hypot(run, drop),
-      pitch: Math.atan2(drop, run),
-      cx: (rx0 + rx1) / 2,
-      cz: (z0 + zOut) / 2,
-      cy: (v.roof.high + v.roof.low) / 2,
-      w: rx1 - rx0,
-    };
-  }, [v, z0]);
-  return (
-    <group>
-      {/* glass */}
-      <BoxXYZ
-        x={[x0, x1]}
-        y={[0, v.glassTop]}
-        z={[z0, z1]}
-        color={C.glass}
-        lineColor={C.rail}
-        opacity={0.75}
-      />
-      {/* storefront mullions + head */}
-      {posts.map(([x, z], i) => (
-        <BoxXYZ
-          key={i}
-          x={[x - t / 2, x + t / 2]}
-          y={[0, v.glassTop]}
-          z={[z - t / 2, z + t / 2]}
-          color={C.rail}
-        />
-      ))}
-      <BoxXYZ
-        x={[x0 - t / 2, x1 + t / 2]}
-        y={[v.glassTop - 0.4, v.glassTop + 0.2]}
-        z={[z1 - t / 2, z1 + t / 2]}
-        color={C.rail}
-      />
-      <BoxXYZ
-        x={[x0 - t / 2, x0 + t / 2]}
-        y={[v.glassTop - 0.4, v.glassTop + 0.2]}
-        z={[z0, z1]}
-        color={C.rail}
-      />
-      {/* canopy */}
-      <group position={[roof.cx, roof.cy, roof.cz]} rotation={[roof.pitch, 0, 0]}>
-        <mesh>
-          <boxGeometry args={[roof.w, 0.5, roof.len]} />
-          <meshLambertMaterial color={C.metal} />
-        </mesh>
-        <Outline
-          geometry={useMemo(
-            () => new THREE.BoxGeometry(roof.w, 0.5, roof.len),
-            [roof.w, roof.len],
-          )}
-          color={C.lineOnDark}
-        />
-      </group>
     </group>
   );
 };
@@ -795,6 +716,7 @@ const mainCorePieces = (): Box3[] => {
       stepWallRecess,
       stepWallRecessFloor,
       EAST_DOOR_BAY_CUT,
+      ENTRY_INNER_CUT, // the inner storefront behind the entry vestibule
       ...insideSheds,
       ...MAIN_CORE_POCKETS, // window openings (windowGeometry.ts)
     ],
@@ -1003,8 +925,7 @@ const SouthDeck: React.FC = () => {
       {DECK_STAIRS.map((f, i) => (
         <StairFlight key={i} f={f} />
       ))}
-      <BoxXYZ x={[x0, x1]} y={[d.y, d.curbTop]} z={[z1 - c, z1]} color={C.precast} />
-      <BoxXYZ x={[x0, x0 + c]} y={[d.y, d.curbTop]} z={[z0, z1 - c]} color={C.precast} />
+      {/* the curb itself is 3D tan brick (DeckParapet in BrickFacades.tsx) */}
       <Railing
         path={[
           [x1, z1 - c - 0.3],
@@ -1225,7 +1146,13 @@ const NorthWestWall: React.FC = () => {
   );
   return (
     <group>
-      <BoxXYZ x={x} y={[t.roof, w.brickTop]} z={back} color={C.brick} />
+      {/* 3D tan brick under the sill in each bay between the columns */}
+      {w.bays.map(([x0, x1], i) => (
+        <TanBrickWall
+          key={"brick" + i}
+          spec={{ plane: "z", face: w.z, out: -1, u: [x0, x1], y: [t.roof, w.brickTop], seed: w.brickSeed + i }}
+        />
+      ))}
       <BoxXYZ x={x} y={[w.head, top]} z={back} color={C.concrete} />
       <BoxXYZ x={w.endJamb} y={[t.roof, top]} z={back} color={C.concrete} />
       {w.bays.map(([x0, x1], i) => (
@@ -1259,6 +1186,7 @@ export const Massing: React.FC = () => (
     <EastDoorBay />
     <Prism poly={WING_CORE_POLY} y0={0} y1={H_WING_CORE} color={C.brick} holes={WELL_HOLES} />
     <Windows />
+    <BrickFacades />
     {/* concrete wall columns (pilasters), all faces: PIERS in plan.ts */}
     {PIERS.map((p) => (
       <Prism key={p.name} poly={p.poly} y0={p.y0} y1={p.top} color={C.concrete} />

@@ -90,6 +90,11 @@ export type Panel = {
 };
 
 const GRADE = -1.2; // bottom of facades, matches ground plane
+// the stair tower's south and north drawings start at the building's 3D brick
+// face (0.15 off the wall line), not the wall line: standing 0.15 off the
+// tower, they would cut through the brick, and the corner line drawn at their
+// edge showed between the bricks (Collin 2026-11-27)
+const TOWER_SIDE_Z0 = TOWER.z0 + 0.15;
 const eastPanel = (name: string, a: XZ, b: XZ, yTop: number, cut: "east" | "eastTower" = "east"): Panel => ({
   name,
   cut,
@@ -120,10 +125,12 @@ const RAW_PANELS: Panel[] = [
   eastPanel("east-main-deck", [GX.g2, GZ.B], [EAST_DOOR_BAY.x[0], GZ.B], SOUTH_DECK.curbTop),
   ...eastAroundBay("east-main-deck-bay", EAST_DOOR_BAY.x[0], SOUTH_DECK.x[1], SOUTH_DECK.curbTop),
   ...eastAroundBay("east-main-bay", SOUTH_DECK.x[1], EAST_DOOR_BAY.x[1], H.auger),
-  eastPanel("east-main", [EAST_DOOR_BAY.x[1], GZ.B], [88.0, GZ.B], H.auger),
+  // the main panel ends at the tower's north side: past it, above the 170'
+  // roofline, is the 3D shed wall (Collin 2026-11-27)
+  eastPanel("east-main", [EAST_DOOR_BAY.x[1], GZ.B], [TOWER.x1, GZ.B], H.auger),
   // the deck's west side steps up to the 177' roof: that step wall is 3D
   // (DECK_STEP_WALL in Massing.tsx)
-  eastPanel("east-main-sheds", [88.0, GZ.B], [GX.g9, GZ.B], NORTH_ROOFLINE),
+  eastPanel("east-main-sheds", [TOWER.x1, GZ.B], [GX.g9, GZ.B], NORTH_ROOFLINE),
   eastPanel(
     "tower-east",
     [TOWER.x0, TOWER.z1],
@@ -194,9 +201,9 @@ const RAW_PANELS: Panel[] = [
     name: "tower-south",
     cut: "southTower",
     face: "south",
-    a: [TOWER.x0, TOWER.z0],
+    a: [TOWER.x0, TOWER_SIDE_Z0],
     b: [TOWER.x0, TOWER.z1],
-    sx: [south.px(TOWER.z0), south.px(TOWER.z1)],
+    sx: [south.px(TOWER_SIDE_Z0), south.px(TOWER.z1)],
     sy: [row(south.l1, TOWER.eave), row(south.l1, GRADE)],
     l1: south.l1,
   },
@@ -240,8 +247,8 @@ const RAW_PANELS: Panel[] = [
     cut: "northTower",
     face: "north",
     a: [TOWER.x1, TOWER.z1],
-    b: [TOWER.x1, TOWER.z0],
-    sx: [north.px(TOWER.z1), north.px(TOWER.z0)],
+    b: [TOWER.x1, TOWER_SIDE_Z0],
+    sx: [north.px(TOWER.z1), north.px(TOWER_SIDE_Z0)],
     sy: [row(north.l1, TOWER.eave), 2440],
     l1: north.l1,
   },

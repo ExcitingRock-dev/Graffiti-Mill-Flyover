@@ -7,7 +7,7 @@ import {
 } from "remotion";
 import * as THREE from "three";
 import { CUTS } from "./geometry";
-import { SHEET_HOLES, SheetHole, SheetName } from "./windowGeometry";
+import { BRICK_SHEET_CLEARS, SHEET_FILLS, SHEET_HOLES, SheetHole, SheetName } from "./windowGeometry";
 
 export type CutKey = keyof typeof CUTS;
 export type FacadeTextures = Record<CutKey, THREE.Texture>;
@@ -123,6 +123,16 @@ const editCut = (key: CutKey, img: CanvasImageSource & { width: number; height: 
     g.closePath();
     g.fill();
   }
+  // the 3D brick facades (BrickFacades.tsx) take the drawing's place there
+  for (const r of BRICK_SHEET_CLEARS.filter((c) => c.sheet === SHEET_OF[key]))
+    g.fillRect(r.x0 - cut.x, r.y0 - cut.y, r.x1 - r.x0, r.y1 - r.y0);
+  // areas painted over (DrawingErase.fill), on the full drawings only
+  g.globalCompositeOperation = "source-over";
+  if (!WINDOWS_ONLY.has(key))
+    for (const r of SHEET_FILLS.filter((c) => c.sheet === SHEET_OF[key])) {
+      g.fillStyle = r.fill;
+      g.fillRect(r.x0 - cut.x, r.y0 - cut.y, r.x1 - r.x0, r.y1 - r.y0);
+    }
   return new THREE.CanvasTexture(canvas);
 };
 

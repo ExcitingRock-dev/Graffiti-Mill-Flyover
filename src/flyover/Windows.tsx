@@ -4,8 +4,8 @@ import { concreteTexture } from "./concrete";
 import { corrugatedTexture } from "./Sheds";
 import { Box, boxesGeometry } from "./TanBrick";
 import { worldUV } from "./uv";
-import { RAKED_W6, ROUND_CW6, ROUND_W22, WINDOW_COLORS as COL, WINDOW_SYSTEMS, WINDOWS, WindowSpec } from "./plan";
-import { IN, WINDOW_WALLS, mullionRanges, outline, outlineBox, rakedCorners, wallFrame, windowDepths } from "./windowGeometry";
+import { RAKED_W6, ROUND_CW6, ROUND_W22, TAN_BRICK, WINDOW_COLORS as COL, WINDOW_SYSTEMS, WINDOWS, WindowSpec } from "./plan";
+import { IN, WINDOW_WALLS, brickFacadeOf, mullionRanges, outline, outlineBox, rakedCorners, wallFrame, windowDepths } from "./windowGeometry";
 
 // The windows from the shop drawings (WINDOWS in plan.ts, geometry in
 // windowGeometry.ts), as real 3D units: black anodized frames and mullions at their
@@ -26,6 +26,7 @@ const REVEAL: Record<string, string> = {
 // precast and tower solids exactly the pocket's extra width
 const REVEAL_W: Record<string, number> = { brick: 0.25, precast: 0.05, tower: 0.05 };
 const FLASH_T = 0.05;
+const FLASH_LIFT = 0.01;
 
 // per-window glass tone, like the drawings' lites (0.82 - 1.0)
 const glassTone = (i: number) => 0.84 + (((i * 2654435761) >>> 0) % 1000) / 1000 * 0.16;
@@ -69,18 +70,26 @@ const rectParts = (w: WindowSpec, p: Parts) => {
   if (setting === "interior") return;
   // the wall returning at the jambs and head, and the sill under the flashing
   const rw = REVEAL_W[setting];
-  const front = setting === "brick" ? dep.face - 0.01 : dep.face;
+  // in a 3D brick facade the returns stay behind the brick and its mortar
+  // joints, so the brick ends show at the jambs
+  const inBrick = brickFacadeOf(w) !== null;
+  const front = inBrick ? dep.face - TAN_BRICK.mortarSet - 0.01 : setting === "brick" ? dep.face - 0.01 : dep.face;
   const rd: Range = [dep.back, front];
   const rev = c(REVEAL[setting]);
   box([a0 - rw, a0], [y0 - rw, y1 + rw], rd, rev);
   box([a1, a1 + rw], [y0 - rw, y1 + rw], rd, rev);
   box([a0, a1], [y1, y1 + rw], rd, rev);
+  // on a stone sill (BrickFacades.tsx) there is no wash or flashing
+  if (inBrick && w.stoneSill) return;
   box([a0, a1], [y0 - rw, y0 - FLASH_T], rd, setting === "brick" ? c(COL.wash) : rev);
   // sill flashing from the frame out past the face, with a drip
   const flash = c(COL.flashing);
   const tip = dep.face + dep.sillProud;
-  box([a0, a1], [y0 - FLASH_T, y0], [dep.back + 0.05, tip], flash);
-  box([a0, a1], [y0 - FLASH_T - 0.08, y0 - FLASH_T], [tip - 0.025, tip], flash);
+  // in 3D brick the top course ends exactly at the opening's bottom: lift the
+  // flashing a hair so its top doesn't share that plane (Collin 2026-11-27)
+  const lift = inBrick ? FLASH_LIFT : 0;
+  box([a0, a1], [y0 - FLASH_T + lift, y0 + lift], [dep.back + 0.05, tip], flash);
+  box([a0, a1], [y0 - FLASH_T - 0.08 + lift, y0 - FLASH_T + lift], [tip - 0.025, tip], flash);
 };
 
 const roundParts = (w: WindowSpec, p: Parts) => {

@@ -74,6 +74,23 @@ export const FlyControls: React.FC<{ onReadout: Readout }> = ({ onReadout }) => 
         .find((h) => !(h.object instanceof THREE.LineSegments) && !(h.object instanceof THREE.Line));
       return { hit: hit?.point ?? null, dir: ray.ray.direction.clone() };
     };
+    // for scripted checks: what model surface is under a screen point
+    (window as unknown as { scene: THREE.Scene }).scene = scene;
+    (window as unknown as { pickAt: (x: number, y: number) => unknown }).pickAt = (x, y) => {
+      const r = el.getBoundingClientRect();
+      ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, cam);
+      return ray
+        .intersectObjects(scene.children, true)
+        .filter((h) => !(h.object instanceof THREE.LineSegments) && !(h.object instanceof THREE.Line))
+        .slice(0, 4)
+        .map((h) => ({
+          p: h.point.toArray().map((v) => +v.toFixed(2)),
+          type: h.object.type,
+          mat: (h.object as THREE.Mesh).material?.constructor?.name,
+          verts: (h.object as THREE.Mesh).geometry?.attributes?.position?.count,
+        }));
+    };
 
     let drag: null | { button: number; x: number; y: number; pivot: THREE.Vector3; dist: number } = null;
 
